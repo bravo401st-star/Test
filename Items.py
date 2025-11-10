@@ -12,3 +12,18 @@ def GetItemByName(name: str):
             return item
     print("Unknown item: \"" + name + "\"")
     return None
+
+
+def GetItemByIndex(index: int):
+    if (index >= len(ItemSystem.itemsList) or index < 0):
+        return None
+    return ItemSystem.itemsList[index]
+    
+
+def GetItemsByTag(tag: str):
+    items = []
+    for item in ItemSystem.itemsList:
+        if (item.tag.upper() == tag.upper()):
+            items.append(item)
+
+    return items

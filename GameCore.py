@@ -1,44 +1,22 @@
-import ItemSystem
-import copy
-from abc import ABC
+import Items
+import Entity
+import Enemies
+from colorama import Fore, Back, Style
 
-class Entity(ABC):
-    def __init__(self, name: str, health: int):
-        self.health = health
-        self.name = name
+def Init():
+    playerCharacter.name = input("Please state your name: ")
+    if playerCharacter.name.strip() == "":
+        playerCharacter.name = "Player"
+    print("\nI see... your name is " + playerCharacter.name + "!"
+           + "\n\nPlease take these items and begin your quest!!")
+    playerCharacter.GiveItem(Items.GetItemByName("Rusty Sword"))
+    playerCharacter.GiveItem(Items.GetRandomItem(weighted=True))
+    SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
 
-    
-    def Damage(self, amount: int):
-        self.health -= amount
-        print(self.name + " took " + str(amount) + " damage!")
-        pass
-
-
-class BasicEnemy(Entity):
-    def __init__(self, name, health):
-        super().__init__(name, health)
-
-
-class Player(Entity):
-    def __init__(self, name, health):
-        super().__init__(name, health)
-        self.items = []
-        self.maxStamina = 5
-        self.stamina = self.maxStamina
-
-
-    def GiveItem(self, item: ItemSystem.Item):
-        if item is None:
-            return
-
-        self.items.append(copy.copy(item))
-        print(item.name + " given to " + self.name)
-
-
-def SpawnEnemy(enemy: Entity):
+def SpawnEnemy(enemy: Entity.BasicEnemy):
     global enemiesInScene
     enemiesInScene.append(enemy)
-    print("A " + enemy.name + " has appeared!")
+    print(f"A [LVL {enemy.level}]" + Fore.RED + Style.BRIGHT + enemy.name + Style.RESET_ALL + " has appeared!")
     pass
 
 
@@ -52,8 +30,71 @@ def GetEntity(index: int):
         return playerCharacter
     else:
         return enemiesInScene[index - 1]
+    
+def OnEntityDie(entity: Entity):
+    global gameRunning
+    if type(entity) is Entity.Player:
+        print("You died!")
+        gameRunning = False
+        return
+    
+    if type(entity) is Entity.BasicEnemy:
+        print(entity.name + " has died!")
+        RemoveEnemyFromScene(entity)
+        return
+    pass
+Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
 
-playerCharacter = Player("Player", health=100)
+def RemoveEnemyFromScene(enemy: Entity.BasicEnemy):
+    global enemiesInScene
+    if enemy in enemiesInScene:
+            enemiesInScene.remove(enemy)
+            CheckEncounterStatus()
+            return True
+    return False
+
+
+def CheckEncounterStatus():
+    global enemiesInScene
+    global playerCharacter
+    if (len(enemiesInScene) > 0):
+        return True
+    
+    rewardItem = Items.GetRandomItem(weighted=True)
+    while True:
+        command = input("You found " + rewardItem.name + " in the loot! (Keep? Y/N): ")
+        if len(command) <= 0:
+            print("You must make a choice!")
+            continue
+
+        if command.lower()[0] == "y":
+            playerCharacter.GiveItem(rewardItem)
+            break
+        else:
+            if command.lower()[0] == "n":
+                break
+
+        print("You must make a choice!")
+    
+
+    EndPlayerTurn()
+    SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
+
+
+def EndPlayerTurn():
+    global playerCharacter
+    ProcessEnemyTurn()
+    print("\n\nNew turn!")
+    playerCharacter.stamina = playerCharacter.maxStamina
+    pass
+
+
+def ProcessEnemyTurn():
+    pass
+
+
+playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(100).SetHealth(100)
 enemiesInScene = []
 gameRunning = True
+showPlayerInfo = False
