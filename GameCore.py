@@ -1,6 +1,7 @@
 import Items
 import Entity
 import Enemies
+import random
 from colorama import Fore, Back, Style
 
 def Init():
@@ -79,7 +80,9 @@ def CheckEncounterStatus():
     
 
     EndPlayerTurn()
-    SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
+
+    for i in range(0, random.randrange(1, 4)):
+        SpawnEnemy(Enemies.CreateRandomEnemy())
 
 
 def EndPlayerTurn():
@@ -91,6 +94,10 @@ def EndPlayerTurn():
 
 
 def ProcessEnemyTurn():
+    global enemiesInScene
+    for enemy in enemiesInScene:
+        enemy.DoTurn()
+        pass
     pass
 
 
@@ -98,3 +105,4 @@ playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(100).SetHealth(
 enemiesInScene = []
 gameRunning = True
 showPlayerInfo = False
+godmode = False

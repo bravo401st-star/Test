@@ -4,6 +4,8 @@ import Entity
 import Commands
 from colorama import Fore, Back, Style
 
+## DEVELOPED AND DESIGNED BY MAGNUSON WHEN HE WAS BORED IN CLASS
+
 def main():
     setup()
     GameLoop()
@@ -12,7 +14,6 @@ def main():
 def setup():
     print("Welcome traveller!")
     gc.Init()
-
 
 
 def GameLoop():

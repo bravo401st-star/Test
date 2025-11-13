@@ -105,6 +105,30 @@ class HealthPotion(UseableItem):
     def SetHealing(self, healing: int):
         self.healing = healing
         return self
+    
+class EnergyPotion(UseableItem):
+    tag = "POTION"
+
+    def __init__(self):
+        super().__init__()
+        self.energy = 0
+
+    def GetDesc(self):
+        return super().GetDesc() + f" - Energy Recovery: {self.energy}"
+    
+    def Use(self, target):
+        if target != gc.playerCharacter or gc.playerCharacter.stamina >= gc.playerCharacter.maxStamina:
+            return False
+        if super().Use(target) == False:
+            return False
+        
+        gc.playerCharacter.stamina += self.energy
+        if (gc.playerCharacter.stamina > gc.playerCharacter.maxStamina):
+            print("You feel even more energized than normal!")
+    
+    def SetEnergy(self, energy: int):
+        self.energy = energy
+        return self
 
 
 itemsList = [
@@ -115,6 +139,7 @@ itemsList = [
     # Potions
     HealthPotion().SetName("Lesser Health Potion").SetRarity(75).SetUseCost(1).SetUses(3).SetHealing(20),
     HealthPotion().SetName("Greater Health Potion").SetRarity(30).SetUseCost(1).SetUses(1).SetHealing(50),
+    EnergyPotion().SetName("Energy Potion").SetRarity(35).SetUseCost(1).SetUses(2).SetEnergy(3),
 
     # Basic Items
     Item().SetName("Cloth Fragment").SetRarity(90)

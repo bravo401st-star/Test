@@ -6,6 +6,7 @@ import GameCore as gc
 import LevelHandler
 import random
 from colorama import Fore, Back, Style
+import EnemyAttackPattern
 
 class Entity(ABC):
     def __init__(self):
@@ -59,6 +60,7 @@ class BasicEnemy(Entity):
     def __init__(self):
         super().__init__()
         self.exp = range(1, 2)
+        self.actionSet = None
 
     def SetDropExp(self, xp: range):
         self.exp = xp
@@ -67,6 +69,13 @@ class BasicEnemy(Entity):
     def Kill(self):
         gc.playerCharacter.level.GrantExperience(self.level + random.randrange(self.exp.start, self.exp.stop))
         return super().Kill()
+    
+    def AttachActionSet(self, actionSet: EnemyAttackPattern.ActionSet):
+        self.actionSet = copy.deepcopy(actionSet)
+        return self
+
+    def DoTurn(self):
+        self.actionSet.PerformNextAction(self)
 
 
 class Player(Entity):
@@ -83,6 +92,12 @@ class Player(Entity):
 
         self.items.append(copy.copy(item))
         print(Fore.LIGHTYELLOW_EX + Style.BRIGHT + item.name + Style.RESET_ALL + " given to " + self.name + Style.RESET_ALL)
+
+    def Damage(self, amount):
+        if (gc.godmode):
+            print(f"Godly power has blocked {amount} damage.")
+            return
+        return super().Damage(amount)
 
 
 e_EntityDeath = EventSystem.Event(Entity)
