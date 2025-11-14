@@ -9,6 +9,9 @@ class Argument(ABC):
     def Get(self):
         pass
 
+    def GetRaw(self):
+        return self.value
+
 class Parameter():
     def __init__(self, name: str, parameterType: type, optional: bool):
         self.optional = bool(optional)

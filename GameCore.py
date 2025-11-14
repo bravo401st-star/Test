@@ -16,12 +16,25 @@ def Init():
 
 def SpawnEnemy(enemy: Entity.BasicEnemy):
     global enemiesInScene
+    if (enemy == None):
+        return
     enemiesInScene.append(enemy)
+    enemy.OnSpawn()
     print(f"A [LVL {enemy.level}]" + Fore.RED + Style.BRIGHT + enemy.name + Style.RESET_ALL + " has appeared!")
     pass
 
+def GetIndexOfEnemy(enemy: Entity.BasicEnemy) -> int:
+    global enemiesInScene
+    index = 1
 
-def GetEntity(index: int):
+    for en in enemiesInScene:
+        index += 1
+        if en is enemy:
+            break
+
+    return index
+
+def GetEntityByIndex(index: int):
     global enemiesInScene
 
     if (index < 0 or index > len(enemiesInScene)):
@@ -32,6 +45,28 @@ def GetEntity(index: int):
     else:
         return enemiesInScene[index - 1]
     
+def GetRandomEnemyByType(searchType: type) -> Entity.BasicEnemy:
+    global enemiesInScene
+    listOfType = []
+    for enemy in enemiesInScene:
+        if issubclass(type(enemy), searchType):
+            listOfType.append(enemy)
+
+    if (len(listOfType) <= 0):
+        return None
+    return listOfType[random.randrange(0, len(listOfType))]
+
+def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy:
+    global enemiesInScene
+    listOfTag = []
+    for enemy in enemiesInScene:
+        if issubclass(type(enemy), Entity.BasicEnemy) and enemy.HasTag(searchTag):
+            listOfTag.append(enemy)
+
+    if (len(listOfTag) <= 0):
+        return None
+    return listOfTag[random.randrange(0, len(listOfTag))]
+    
 def OnEntityDie(entity: Entity):
     global gameRunning
     if type(entity) is Entity.Player:
@@ -39,7 +74,7 @@ def OnEntityDie(entity: Entity):
         gameRunning = False
         return
     
-    if type(entity) is Entity.BasicEnemy:
+    if issubclass(type(entity), Entity.BasicEnemy):
         print(entity.name + " has died!")
         RemoveEnemyFromScene(entity)
         return
@@ -81,7 +116,7 @@ def CheckEncounterStatus():
 
     EndPlayerTurn()
 
-    for i in range(0, random.randrange(1, 4)):
+    for i in range(0, random.randrange(1, 6)):
         SpawnEnemy(Enemies.CreateRandomEnemy())
 
 
@@ -95,7 +130,9 @@ def EndPlayerTurn():
 
 def ProcessEnemyTurn():
     global enemiesInScene
-    for enemy in enemiesInScene:
+    import copy
+    tmpList = copy.copy(enemiesInScene)
+    for enemy in tmpList:
         enemy.DoTurn()
         pass
     pass

@@ -1,6 +1,7 @@
 import inspect
 import GameCore as gc
 from collections.abc import Callable
+import copy
 
 class Event():
     def __init__(self, T: type = None):
@@ -10,7 +11,9 @@ class Event():
 
     def Trigger(self, param = None):
         if self.T != None:
-            for func in self.subscribers:
+            # No recursive subs!
+            subList = copy.copy(self.subscribers)
+            for func in subList:
                 if ((type(param) == self.T or issubclass(type(param), self.T)) and len(inspect.signature(func).parameters) >= 1):
                     func(param)
             return
@@ -27,7 +30,7 @@ class Event():
 
 
     def Unsubscribe(self, func):
-        if func in self.subscribers == False:
+        if not (func in self.subscribers):
             return
         
         self.subscribers.remove(func)

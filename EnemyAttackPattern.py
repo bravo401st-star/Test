@@ -25,6 +25,9 @@ class AAction(ABC):
         self.chance = chance
         return self
     
+    def CanDoAction(self) -> bool:
+        return True
+    
     @abstractmethod
     def PerformAction(self, parent):
         pass
@@ -53,6 +56,33 @@ class HealAction(AAction):
     def GetShortDesc(self):
         return super().GetShortDesc() + f" for {self.healing} HP!"
     
+class HealRandomUndeadAction(AAction):
+    def __init__(self, healing: int):
+        super().__init__()
+        self.healing = healing
+
+    def CanDoAction(self):
+        return gc.GetRandomEnemyByType("Undead") != None
+    
+    def GetRandomUndead(self):
+        return gc.GetRandomEnemyByTag("Undead")
+
+    def PerformAction(self, parent):
+        undeadToHeal = self.GetRandomUndead()
+        if (undeadToHeal == None):
+            return super().PerformAction(parent)
+        undeadToHeal.Heal(self.healing)
+        return super().PerformAction(parent)
+    
+class TauntAction(AAction):
+    def __init__(self, tauntText: str):
+        super().__init__()
+        self.tauntText = tauntText
+
+    def PerformAction(self, parent):
+        print(f"[#{gc.GetIndexOfEnemy(parent)}][LVL {parent.level}] {parent.name}: {self.tauntText}")
+        return super().PerformAction(parent)
+    
     
 #############################################################################
 # Action set class
@@ -61,7 +91,7 @@ class ActionSet():
         self.actions = []
         self.actionIndex = 0
 
-    def GetNextAction(self):
+    def GetNextAction(self) -> AAction:
         return self.actions[self.actionIndex]
         
     def PerformNextAction(self, parent):
@@ -80,6 +110,8 @@ class ActionSet():
                 break
             if (random.random() <= self.GetNextAction().chance):
                 break
+            if (self.GetNextAction().CanDoAction()):
+                break
             limit -= 1
 
     def AppendAction(self, action: AAction):
@@ -87,3 +119,15 @@ class ActionSet():
             raise TypeError(f"Type {type(action)} is not an Action!")
         
         self.actions.append(action)
+
+    def GetActionByName(self, name: str) -> AAction:
+        for action in self.actions:
+            if action.actionName == name:
+                return action
+        return None
+    
+    def GetActionByType(self, actionType: type) -> AAction:
+        for action in self.actions:
+            if type(action) == actionType:
+                return action
+        return None

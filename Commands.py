@@ -11,6 +11,8 @@ from colorama import Fore, Back, Style
 # To-do: Create a more robust command paramter system, parameter type checking, hints
 #        Dynamic command list depending on current environment
 
+lastCommand = ""
+
 class Command():
     def __init__(self, commandFunc: str, help_text: str, hide: bool = False):
         self.commandFunc = commandFunc
@@ -95,8 +97,29 @@ command_map = {
     "spawn-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, False), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "item-list": Command("c_itemlist", "Shows all items in game by index", True),
     "spawn-enemy": Command("c_spawnenemy", "Spawn an enemy into the scene", True).SetParams(CommandParam.Parameter("enemyIndex", CommandParam.IntArgument, False), CommandParam.Parameter("level", CommandParam.IntArgument, True)),
-    "god-mode": Command("c_godmode", "Toggle godmode", True)
+    "god-mode": Command("c_godmode", "Toggle godmode", True),
+    "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True))
 }
+
+def c_killenemy(arguments: list):
+    if len(arguments) > 0:
+        if (arguments[0].GetRaw() == "-a"):
+            for ent in gc.enemiesInScene:
+                ent.Kill()
+            return
+        entity = gc.GetEntityByIndex(arguments[0].Get() - 1)
+        if entity != None:
+            entity.Kill()
+        return
+    
+    PrintOutEntityList()
+    selection = input("Choose entity to kill: ")
+    if (not selection.isnumeric or selection == ''):
+        return
+    
+    entity = gc.GetEntityByIndex(int(selection) - 1)
+    if entity != None:
+            entity.Kill()
 
 def c_godmode():
     gc.godmode = not gc.godmode
@@ -104,7 +127,7 @@ def c_godmode():
 
 def c_spawnenemy(arguments: list):
     enemyIndex = arguments[0].Get()
-    level = arguments[1].Get() if len(arguments > 1) else 1
+    level = arguments[1].Get() if len(arguments) > 1 else 1
     gc.SpawnEnemy(Enemies.CreateEnemyByIndex(enemyIndex, level))
     pass
 
@@ -239,7 +262,7 @@ def UseItemOn(itemIndex, targetIndex):
     if (itemIndex >= len(gc.playerCharacter.items)):
         return
     item: ItemSystem.UseableItem = gc.playerCharacter.items[itemIndex]
-    target: Entity.Entity = gc.GetEntity(targetIndex)
+    target: Entity.Entity = gc.GetEntityByIndex(targetIndex)
 
     if (issubclass(type(item), ItemSystem.UseableItem) is False):
         print("Nothing happened! \"" + item.name + "\" is not a useable item!")
@@ -261,6 +284,9 @@ def c_use_no_params():
     target = input("Select target to use on (leave blank to default player): ")
     if target.strip() == '':
         target = "1"
+
+    if (not target.isnumeric or target == ''):
+        return
 
     UseItemOn(int(index) - 1, int(target) - 1)
 
