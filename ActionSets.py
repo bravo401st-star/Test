@@ -6,7 +6,7 @@ goblin_action_set.AppendAction(AP.AttackAction(30).SetName("Stab").SetShortDesc(
 goblin_action_set.AppendAction(AP.HealAction(10).SetName("Heal").SetShortDesc("Healing self").SetChance(0.5))
 
 goblin_necromancer_action_set = AP.ActionSet()
-goblin_necromancer_action_set.AppendAction(AP.HealRandomUndeadAction("Undead Goblin").SetName("Heal Undead").SetShortDesc("Healing undead minion"))
+goblin_necromancer_action_set.AppendAction(AP.HealRandomUndeadAction(20).SetName("Heal Undead").SetShortDesc("Healing undead minion"))
 goblin_necromancer_action_set.AppendAction(AP.AttackAction(5).SetName("Stab").SetShortDesc("Preparing to stab"))
 
 granite_golem_action_set = AP.ActionSet()

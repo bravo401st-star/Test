@@ -71,6 +71,7 @@ class HealRandomUndeadAction(AAction):
         undeadToHeal = self.GetRandomUndead()
         if (undeadToHeal == None):
             return super().PerformAction(parent)
+        print(f"{parent.name} healed an undead!")
         undeadToHeal.Heal(self.healing)
         return super().PerformAction(parent)
     

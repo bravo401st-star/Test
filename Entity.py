@@ -123,7 +123,7 @@ class NecromancerEnemy(BasicEnemy):
         if (undead == None):
             return
         undead.SetName(f"Undead {undead.name}")
-        undead.SetMaxHealth(undead.maxHealth / 2)
+        undead.SetMaxHealth(int(undead.maxHealth / 2))
         undead.SetHealth(undead.maxHealth)
         undead.AddTags("Undead")
 
