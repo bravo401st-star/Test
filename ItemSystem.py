@@ -137,6 +137,7 @@ itemsList = [
     Weapon().SetName("Excalibur").SetRarity(1).SetUseCost(2).SetDamage(50),
     Weapon().SetName("Adventurers Sword").SetRarity(40).SetUseCost(2).SetDamage(25),
     Weapon().SetName("Mace").SetRarity(50).SetUseCost(3).SetDamage(40),
+    Weapon().SetName("Dagger").SetRarity(45).SetUseCost(1).SetDamage(7),
 
     # Potions
     HealthPotion().SetName("Lesser Health Potion").SetRarity(75).SetUseCost(1).SetUses(3).SetHealing(20),
