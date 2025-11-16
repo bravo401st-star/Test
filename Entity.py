@@ -6,7 +6,7 @@ import GameCore as gc
 import LevelHandler
 import random
 from colorama import Fore, Back, Style
-import EnemyAttackPattern
+import Actions
 
 class Entity(ABC):
     def __init__(self):
@@ -14,6 +14,7 @@ class Entity(ABC):
         self.name = "Unnamed Entity"
         self.level = 1
         self.maxHealth = self.health
+        self.additionalDamage = 0
 
     def OnSpawn(self):
         pass
@@ -26,8 +27,10 @@ class Entity(ABC):
         self.level = level
         return self
     
-    def SetMaxHealth(self, max: int):
+    def SetMaxHealth(self, max: int, setHealthToo: bool = False):
         self.maxHealth = max
+        if setHealthToo:
+            self.SetHealth(max)
         return self
     
     def SetHealth(self, hp: int):
@@ -63,23 +66,35 @@ class BasicEnemy(Entity):
         self.exp = range(1, 2)
         self.actionSet = None
         self.tags = []
+        self.canSpawnInEncounters = True
 
-    def SetDropExp(self, xp: range):
+    def OnSpawn(self):
+        if self.actionSet is not None:
+            self.actionSet.Setup(self)
+        return super().OnSpawn()
+
+    def SetDropExp(self, xp: range | int):
         self.exp = xp
+        return self
+    
+    def DisableSpawnPool(self):
+        self.canSpawnInEncounters = False
         return self
     
     def Kill(self):
         if self.exp == 0:
             return super().Kill()
-        gc.playerCharacter.level.GrantExperience(self.level + random.randrange(self.exp.start, self.exp.stop))
+        toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
+        gc.playerCharacter.level.GrantExperience(toDrop)
         return super().Kill()
     
-    def AttachActionSet(self, actionSet: EnemyAttackPattern.ActionSet):
+    def AttachActionSet(self, actionSet: Actions.ActionSet):
         self.actionSet = copy.deepcopy(actionSet)
         return self
 
     def DoTurn(self):
-        self.actionSet.PerformNextAction(self)
+        if self.actionSet != None:
+            self.actionSet.PerformNextAction()
 
     def SetTags(self, *tags: str):
         self.tags = list(tags)
@@ -130,6 +145,23 @@ class NecromancerEnemy(BasicEnemy):
         print(f"{self.name} is raising an {undead.name}!!")
         gc.SpawnEnemy(undead)
 
+class TrollEnemy(BasicEnemy):
+    def __init__(self):
+        super().__init__()
+
+    def DoTurn(self):
+        self.Heal(5)
+        return super().DoTurn()
+    
+class TransformOnDeathEnemy(BasicEnemy):
+    def __init__(self, transformIndex: int):
+        super().__init__()
+        self.transformToIndex: int = transformIndex
+
+    def Kill(self):
+        import Enemies
+        gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.transformToIndex), True)
+        return super().Kill()
 
 class Player(Entity):
     def __init__(self):
@@ -139,7 +171,7 @@ class Player(Entity):
         self.stamina = self.maxStamina
         self.level = LevelHandler.LevelHandler()
 
-    def GiveItem(self, item: ItemSystem.Item):
+    def GiveItem(self, item: ItemSystem.Item | None):
         if item is None:
             return
 

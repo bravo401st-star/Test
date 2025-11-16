@@ -4,7 +4,7 @@ from collections.abc import Callable
 import copy
 
 class Event():
-    def __init__(self, T: type = None):
+    def __init__(self, T: type | None = None):
         self.subscribers = []
         self.T = T
 

@@ -2,7 +2,14 @@ import Entity
 import ActionSets
 
 __enemy_pool__ = [
-    Entity.BasicEnemy().SetName("Goblin").SetMaxHealth(50).SetHealth(50).SetDropExp(range(1, 3)).AttachActionSet(ActionSets.goblin_action_set),
-    Entity.NecromancerEnemy().SetName("Goblin Necromancer").SetMaxHealth(35).SetHealth(35).SetDropExp(range(2, 4)).AttachActionSet(ActionSets.goblin_necromancer_action_set),
-    Entity.BasicEnemy().SetName("Granite Golem").SetMaxHealth(120).SetHealth(120).SetDropExp(range(5, 15)).AttachActionSet(ActionSets.granite_golem_action_set)
+    Entity.BasicEnemy().SetName("Goblin").SetMaxHealth(50, setHealthToo=True).SetDropExp(range(1, 3)).AttachActionSet(ActionSets.goblin_action_set),
+    Entity.NecromancerEnemy().SetName("Goblin Necromancer").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2, 4)).AttachActionSet(ActionSets.goblin_necromancer_action_set),
+    Entity.BasicEnemy().SetName("Granite Golem").SetMaxHealth(120, setHealthToo=True).SetDropExp(range(5, 15)).AttachActionSet(ActionSets.granite_golem_action_set),
+    Entity.BasicEnemy().SetName("Dire Wolf").SetMaxHealth(40, setHealthToo=True).SetDropExp(range(1, 3)).AttachActionSet(ActionSets.dire_wolf_action_set),
+    Entity.TrollEnemy().SetName("Troll Brute").SetMaxHealth(80, setHealthToo=True).SetDropExp(range(1, 9)).AttachActionSet(ActionSets.troll_brute_action_set),
+    Entity.BasicEnemy().SetName("Cave Bat").SetMaxHealth(10, setHealthToo=True).SetDropExp(range(1, 2)).AttachActionSet(ActionSets.cave_bat_action_set),
+    Entity.TransformOnDeathEnemy(7).SetName("Bog Skeleton").SetMaxHealth(30, setHealthToo=True).SetDropExp(range(1, 3)).SetTags("Undead").AttachActionSet(ActionSets.bog_skeleton_action_set),
+    Entity.BasicEnemy().SetName("Boggy Bone Pile").SetMaxHealth(5, setHealthToo=True).SetDropExp(0).SetTags("Cant_Be_Undead").AttachActionSet(ActionSets.boggy_pile_action_set).DisableSpawnPool()
 ]
+
+__naturally_spawning_pool___ = []

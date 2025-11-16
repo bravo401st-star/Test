@@ -96,9 +96,11 @@ command_map = {
     # CHEAT COMMANDS
     "spawn-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, False), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "item-list": Command("c_itemlist", "Shows all items in game by index", True),
-    "spawn-enemy": Command("c_spawnenemy", "Spawn an enemy into the scene", True).SetParams(CommandParam.Parameter("enemyIndex", CommandParam.IntArgument, False), CommandParam.Parameter("level", CommandParam.IntArgument, True)),
+    "entity-list": Command("c_entitylist", "Shows all entities in game by index", True),
+    "spawn-enemy": Command("c_spawnenemy", "Spawn an enemy into the scene", True).SetParams(CommandParam.Parameter("enemyIndex", CommandParam.IntArgument, True), CommandParam.Parameter("level", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "god-mode": Command("c_godmode", "Toggle godmode", True),
-    "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True))
+    "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
+    "delete-enemy": Command("c_deleteenemy", "Deletes enemy without \"killing\" them", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True))
 }
 
 def c_killenemy(arguments: list):
@@ -114,22 +116,82 @@ def c_killenemy(arguments: list):
     
     PrintOutEntityList()
     selection = input("Choose entity to kill: ")
-    if (not selection.isnumeric or selection == ''):
+    if (not selection.isnumeric() or selection == ''):
         return
     
     entity = gc.GetEntityByIndex(int(selection) - 1)
     if entity != None:
             entity.Kill()
 
+def c_deleteenemy(arguments: list):
+    if len(arguments) > 0:
+        if (arguments[0].GetRaw() == "-a"):
+            for ent in reversed(gc.enemiesInScene):
+                gc.RemoveEnemyFromScene(ent)
+            return
+        entity = gc.GetEntityByIndex(arguments[0].Get() - 1)
+        if entity != None:
+            gc.RemoveEnemyFromScene(entity)
+        return
+    
+    PrintOutEntityList()
+    selection = input("Choose entity to delete: ")
+    if (not selection.isnumeric() or selection == ''):
+        return
+    
+    entity = gc.GetEntityByIndex(int(selection) - 1)
+    if entity != None:
+            gc.RemoveEnemyFromScene(entity)
+
 def c_godmode():
     gc.godmode = not gc.godmode
     print(f"Godmode set to: {gc.godmode}")
 
-def c_spawnenemy(arguments: list):
-    enemyIndex = arguments[0].Get()
-    level = arguments[1].Get() if len(arguments) > 1 else 1
-    gc.SpawnEnemy(Enemies.CreateEnemyByIndex(enemyIndex, level))
+def c_entitylist():
+    print("Entity List: ")
+    index = 0
+    import EnemyList as EList
+    for entity in EList.__enemy_pool__:
+        print(f"{index}: {entity.name}")
+        index += 1
     pass
+
+def c_spawnenemy(arguments: list):
+    import EnemyList
+    paramCount = len(arguments)
+    if paramCount > 0:
+        enemyIndex = arguments[0].Get()
+        enemyLevel = arguments[1].Get() if paramCount >= 2 else 1
+        amountToSpawn = arguments[2].Get() if paramCount >= 3 else 1
+        for i in range(amountToSpawn):
+            gc.SpawnEnemy(Enemies.CreateEnemyByIndex(enemyIndex, enemyLevel))
+        return
+    
+    c_entitylist()
+    selection = input("Choose entity to spawn: ")
+    if (not selection.isnumeric() or selection == ''):
+        print("Invalid selection.")
+        return
+    entityIndex = int(selection)
+    if entityIndex < 0 or entityIndex >= len(EnemyList.__enemy_pool__):
+        print("Invalid selection.")
+        return
+    
+    level = input("Choose level (default 1): ")
+    if ((not level.isnumeric()) or level == ''):
+        print("Defaulting level to 1")
+        level = "1"
+
+    count = input(f"Choose count to spawn (default 1, max {gc.MAX_ENEMIES_IN_SCENE}): ")
+    if ((not count.isnumeric()) or count == ''):
+        print("Defaulting level to 1")
+        count = "1"
+    elif int(count) > gc.MAX_ENEMIES_IN_SCENE:
+        print(f"{count} exceeds max of {gc.MAX_ENEMIES_IN_SCENE}; setting to {gc.MAX_ENEMIES_IN_SCENE}")
+        count = gc.MAX_ENEMIES_IN_SCENE
+    
+    for i in range(int(count)):
+        gc.SpawnEnemy(Enemies.CreateEnemyByIndex(entityIndex, int(level)))
 
 
 def c_showinfo():
@@ -182,7 +244,11 @@ def PrintOutEntityList():
     index = 2
     print("-"*40)
     for enemy in gc.enemiesInScene:
-        print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] !![{Style.BRIGHT}{Fore.RED}{enemy.actionSet.GetNextAction().GetShortDesc()}{Style.RESET_ALL}]!!")
+        action = enemy.actionSet.GetNextAction()
+        actionText = "[Just chillin']"
+        if action is not None:
+            actionText = f"!![{Style.BRIGHT}{Fore.RED}{enemy.actionSet.GetNextAction().GetShortDesc()}{Style.RESET_ALL}]!!"
+        print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] {actionText}")
         index += 1
 
 
@@ -216,8 +282,7 @@ def c_help(args: list):
 
 
 def c_quit():
-    command = input("Are you sure? (Y/N): ")
-    if command.lower()[0] == "y":
+    if PromptAreYouSure(False, True):
         gc.gameRunning = False
         print("Quitting game...")
 
@@ -262,7 +327,7 @@ def UseItemOn(itemIndex, targetIndex):
     if (itemIndex >= len(gc.playerCharacter.items)):
         return
     item: ItemSystem.UseableItem = gc.playerCharacter.items[itemIndex]
-    target: Entity.Entity = gc.GetEntityByIndex(targetIndex)
+    target: Entity.Entity | None = gc.GetEntityByIndex(targetIndex)
 
     if (issubclass(type(item), ItemSystem.UseableItem) is False):
         print("Nothing happened! \"" + item.name + "\" is not a useable item!")
@@ -277,7 +342,7 @@ def c_use_no_params():
     PrintOutInventory()
     index = input("Select item to use (leave blank to cancel): ")
 
-    if (not index.isnumeric or index == ''):
+    if (not index.isnumeric() or index == ''):
         return
 
     PrintOutEntityList()
@@ -285,12 +350,39 @@ def c_use_no_params():
     if target.strip() == '':
         target = "1"
 
-    if (not target.isnumeric or target == ''):
+    if (not target.isnumeric() or target == ''):
         return
 
     UseItemOn(int(index) - 1, int(target) - 1)
 
     pass
+
+def PromptAreYouSure(defaultResponse: bool = False, requireImplicitResponse: bool = False) -> bool:
+    response = defaultResponse
+    command = input(f"Are you sure? ({"Y/n" if defaultResponse else "y/N"}): ")
+
+    # If we input nothing and we don't require a implicit response then go default
+    if not requireImplicitResponse and command == "":
+        return defaultResponse
+    
+    # We now require a response OR we inputted something
+
+    # A lil jank but if we need to have an implicit response then I suppose we should look 
+    # at the ENTIRE input for what we need otherwise we just get the first char
+    if command != "":
+        command = command.lower()[0] if requireImplicitResponse else command
+    else:
+        command = "y" if defaultResponse else "n"
+
+    if command == "y":
+        response = True
+    elif command == "n":
+        response = False
+    else:
+        print("Invalid input.")
+        return PromptAreYouSure(defaultResponse, requireImplicitResponse)
+        
+    return response
 
 def GetCommand(inputString: str) -> list:
     found = []

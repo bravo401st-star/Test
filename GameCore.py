@@ -4,6 +4,8 @@ import Enemies
 import random
 from colorama import Fore, Back, Style
 
+MAX_ENEMIES_IN_SCENE = 16
+
 def Init():
     playerCharacter.name = input("Please state your name: ")
     if playerCharacter.name.strip() == "":
@@ -14,9 +16,10 @@ def Init():
     playerCharacter.GiveItem(Items.GetRandomItem(weighted=True))
     SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
 
-def SpawnEnemy(enemy: Entity.BasicEnemy):
+def SpawnEnemy(enemy: Entity.BasicEnemy | None, force: bool = False):
     global enemiesInScene
-    if (enemy == None):
+    global MAX_ENEMIES_IN_SCENE
+    if enemy == None or (len(enemiesInScene) >= MAX_ENEMIES_IN_SCENE and not force):
         return
     enemiesInScene.append(enemy)
     enemy.OnSpawn()
@@ -45,7 +48,7 @@ def GetEntityByIndex(index: int):
     else:
         return enemiesInScene[index - 1]
     
-def GetRandomEnemyByType(searchType: type) -> Entity.BasicEnemy:
+def GetRandomEnemyByType(searchType: type) -> Entity.BasicEnemy | None:
     global enemiesInScene
     listOfType = []
     for enemy in enemiesInScene:
@@ -56,7 +59,7 @@ def GetRandomEnemyByType(searchType: type) -> Entity.BasicEnemy:
         return None
     return listOfType[random.randrange(0, len(listOfType))]
 
-def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy:
+def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy | None:
     global enemiesInScene
     listOfTag = []
     for enemy in enemiesInScene:
@@ -67,8 +70,10 @@ def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy:
         return None
     return listOfTag[random.randrange(0, len(listOfTag))]
     
-def OnEntityDie(entity: Entity):
+def OnEntityDie(entity: Entity.Entity | None):
     global gameRunning
+    if entity == None:
+        return
     if type(entity) is Entity.Player:
         print("You died!")
         gameRunning = False
@@ -81,8 +86,7 @@ def OnEntityDie(entity: Entity):
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
-
-def RemoveEnemyFromScene(enemy: Entity.BasicEnemy):
+def RemoveEnemyFromScene(enemy):
     global enemiesInScene
     if enemy in enemiesInScene:
             enemiesInScene.remove(enemy)
@@ -90,6 +94,29 @@ def RemoveEnemyFromScene(enemy: Entity.BasicEnemy):
             return True
     return False
 
+def GetCountOfEntityType(entityType: type) -> int:
+    global enemiesInScene
+    count = 0
+    if not issubclass(entityType, Entity.Entity):
+        return count
+    
+    for entity in enemiesInScene:
+        if issubclass(type(entity), entityType):
+            count += 1
+
+    return count
+
+def GetAllEnemiesOfType(entityType: type) -> list | None:
+    global enemiesInScene
+    enemiesOfType = []
+    if not issubclass(entityType, Entity.Entity):
+        return None
+    
+    for entity in enemiesInScene:
+        if type(entity) is entityType:
+            enemiesOfType.append(entity)
+
+    return enemiesOfType
 
 def CheckEncounterStatus():
     global enemiesInScene
@@ -130,12 +157,17 @@ def EndPlayerTurn():
 
 def ProcessEnemyTurn():
     global enemiesInScene
-    import copy
+    import copy, time, os
+    if os.name == 'nt':
+        os.system('cls')
+    else:
+        os.system('clear')
     tmpList = copy.copy(enemiesInScene)
+    print("Processing enemy turn!\n")
+    time.sleep(1)
     for enemy in tmpList:
         enemy.DoTurn()
-        pass
-    pass
+        time.sleep(0.2)
 
 
 playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(100).SetHealth(100)
