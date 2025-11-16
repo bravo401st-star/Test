@@ -119,27 +119,15 @@ def GetAllEnemiesOfType(entityType: type) -> list | None:
     return enemiesOfType
 
 def CheckEncounterStatus():
+    import Commands
     global enemiesInScene
     global playerCharacter
     if (len(enemiesInScene) > 0):
         return True
     
     rewardItem = Items.GetRandomItem(weighted=True)
-    while True:
-        command = input("You found " + rewardItem.name + " in the loot! (Keep? Y/N): ")
-        if len(command) <= 0:
-            print("You must make a choice!")
-            continue
-
-        if command.lower()[0] == "y":
-            playerCharacter.GiveItem(rewardItem)
-            break
-        else:
-            if command.lower()[0] == "n":
-                break
-
-        print("You must make a choice!")
-    
+    if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {rewardItem.name} as a reward. Do you want to keep it?", True, True)):
+        playerCharacter.GiveItem(rewardItem)
 
     EndPlayerTurn()
 
@@ -173,5 +161,5 @@ def ProcessEnemyTurn():
 playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(100).SetHealth(100)
 enemiesInScene = []
 gameRunning = True
-showPlayerInfo = False
+showPlayerInfo = True
 godmode = False

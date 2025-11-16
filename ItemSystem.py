@@ -80,6 +80,16 @@ class Weapon(UseableItem):
     def SetDamage(self, damage: int):
         self.damage = damage
         return self
+    
+class VampireDagger(Weapon):
+    def GetDesc(self):
+        return super().GetDesc() + " - Heals for half damage dealt."
+
+    def Use(self, target):
+        if super().Use(target) == False:
+            return False
+        
+        gc.playerCharacter.Heal(self.damage // 2)
 
 
 class HealthPotion(UseableItem):
@@ -138,6 +148,7 @@ itemsList = [
     Weapon().SetName("Adventurers Sword").SetRarity(40).SetUseCost(2).SetDamage(25),
     Weapon().SetName("Mace").SetRarity(50).SetUseCost(3).SetDamage(40),
     Weapon().SetName("Dagger").SetRarity(45).SetUseCost(1).SetDamage(7),
+    VampireDagger().SetName("Vampire Dagger").SetRarity(20).SetUseCost(1).SetDamage(10),
 
     # Potions
     HealthPotion().SetName("Lesser Health Potion").SetRarity(75).SetUseCost(1).SetUses(3).SetHealing(20),

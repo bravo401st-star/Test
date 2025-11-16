@@ -282,7 +282,7 @@ def c_help(args: list):
 
 
 def c_quit():
-    if PromptAreYouSure(False, True):
+    if PromptYesNoQuestion("Are you sure?", False, True):
         gc.gameRunning = False
         print("Quitting game...")
 
@@ -357,19 +357,23 @@ def c_use_no_params():
 
     pass
 
-def PromptAreYouSure(defaultResponse: bool = False, requireImplicitResponse: bool = False) -> bool:
+def PromptYesNoQuestion(promptText: str = "Are you sure?", defaultResponse: bool = False, requireImplicitResponse: bool = False) -> bool:
     response = defaultResponse
-    command = input(f"Are you sure? ({"Y/n" if defaultResponse else "y/N"}): ")
+    command = input(f"{promptText} ({"Y/n" if defaultResponse else "y/N"}): ")
+    commandLeftBlank = command.strip() == ""
 
-    # If we input nothing and we don't require a implicit response then go default
-    if not requireImplicitResponse and command == "":
+    # If we input nothing and we don't require an implicit response then go default
+    if not requireImplicitResponse and commandLeftBlank:
         return defaultResponse
     
     # We now require a response OR we inputted something
+    if commandLeftBlank and requireImplicitResponse:
+        print("Invalid input.")
+        return PromptYesNoQuestion(promptText, defaultResponse, requireImplicitResponse)
 
     # A lil jank but if we need to have an implicit response then I suppose we should look 
     # at the ENTIRE input for what we need otherwise we just get the first char
-    if command != "":
+    if not commandLeftBlank:
         command = command.lower()[0] if requireImplicitResponse else command
     else:
         command = "y" if defaultResponse else "n"
@@ -380,7 +384,7 @@ def PromptAreYouSure(defaultResponse: bool = False, requireImplicitResponse: boo
         response = False
     else:
         print("Invalid input.")
-        return PromptAreYouSure(defaultResponse, requireImplicitResponse)
+        return PromptYesNoQuestion(promptText, defaultResponse, requireImplicitResponse)
         
     return response
 

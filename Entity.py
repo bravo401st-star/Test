@@ -7,6 +7,7 @@ import LevelHandler
 import random
 from colorama import Fore, Back, Style
 import Actions
+from EnemyTags import Tags
 
 class Entity(ABC):
     def __init__(self):
@@ -97,6 +98,7 @@ class BasicEnemy(Entity):
             self.actionSet.PerformNextAction()
 
     def SetTags(self, *tags: str):
+        
         self.tags = list(tags)
         return self
 
@@ -126,13 +128,13 @@ class NecromancerEnemy(BasicEnemy):
         e_EntityDeath.Unsubscribe(self.TryToRaiseDead)
         return super().Kill()
     
-    def TryToRaiseDead(self, entity):
+    def TryToRaiseDead(self, entity: BasicEnemy):
         import Enemies
         if (entity is self):
             return
         if (not issubclass(type(entity), BasicEnemy)):
             return
-        if (entity.HasTag("Undead", "Cant_Be_Undead")):
+        if (entity.HasTag(Tags.UNDEAD, Tags.CANT_BE_UNDEAD)):
             return
         undead = Enemies.CreateEnemyByName(entity.name)
         if (undead == None):
@@ -140,7 +142,7 @@ class NecromancerEnemy(BasicEnemy):
         undead.SetName(f"Undead {undead.name}")
         undead.SetMaxHealth(int(undead.maxHealth / 2))
         undead.SetHealth(undead.maxHealth)
-        undead.AddTags("Undead")
+        undead.AddTags(Tags.UNDEAD)
 
         print(f"{self.name} is raising an {undead.name}!!")
         gc.SpawnEnemy(undead)
@@ -154,12 +156,15 @@ class TrollEnemy(BasicEnemy):
         return super().DoTurn()
     
 class TransformOnDeathEnemy(BasicEnemy):
-    def __init__(self, transformIndex: int):
+    def __init__(self, transformIndex: int, flavorText: str = ""):
         super().__init__()
         self.transformToIndex: int = transformIndex
+        self.flavorText: str = flavorText
 
     def Kill(self):
         import Enemies
+        if (self.flavorText != ""):
+            print(f"{self.name} {self.flavorText}")
         gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.transformToIndex), True)
         return super().Kill()
 
