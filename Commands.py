@@ -85,13 +85,14 @@ class Command():
     
 command_map = {
     "help": Command("c_help", "Shows all avaliable commands").SetParams(CommandParam.Parameter("command", CommandParam.StringArgument, True)),
-    "inventory": Command("c_inventory", "Shows your current inventory"),
+    "inventory": Command("c_inventory", "Show and manage your inventory").SetParams(CommandParam.Parameter("action (drop, use)", CommandParam.StringArgument, True), CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True)),
     "quit": Command("c_quit", "Quits the game (for cowards)."),
     "use": Command("c_use", "Use item on entity").SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("entityIndex", CommandParam.IntArgument, True)),
     "entities": Command("c_entities", "Show a list of all entities in scene"),
     "endturn": Command("c_endTurn", "Ends your turn!"),
     "status": Command("c_status", "Display status of player"),
     "showinfo": Command("c_showinfo", "Show info of player at all times"),
+    "clear": Command("c_clear", "Clears the console"),
 
     # CHEAT COMMANDS
     "spawn-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, False), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
@@ -100,8 +101,13 @@ command_map = {
     "spawn-enemy": Command("c_spawnenemy", "Spawn an enemy into the scene", True).SetParams(CommandParam.Parameter("enemyIndex", CommandParam.IntArgument, True), CommandParam.Parameter("level", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "god-mode": Command("c_godmode", "Toggle godmode", True),
     "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
-    "delete-enemy": Command("c_deleteenemy", "Deletes enemy without \"killing\" them", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True))
+    "delete-enemy": Command("c_deleteenemy", "Deletes enemy without \"killing\" them", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
+    "shop": Command("c_shop", "Opens the shop (for testing)", True),
 }
+
+def c_clear():
+    import os
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def c_killenemy(arguments: list):
     if len(arguments) > 0:
@@ -251,6 +257,10 @@ def PrintOutEntityList():
         print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] {actionText}")
         index += 1
 
+def c_shop():
+    from ShopSystem import Shop
+    shop = Shop()
+    shop.OpenShop()
 
 def c_help(args: list):
     global command_map
@@ -270,7 +280,8 @@ def c_help(args: list):
         print("-" * 20)
         return
 
-    print("\nCommand List:\n")
+    print(f"\nYou can type \"{RPG.REPEAT_COMMAND}\" to repeat last command.")
+    print("Command List:\n")
     for command in command_map:
         hidden = command_map[command].hide
         if (showHidden == False and hidden == True):
@@ -287,8 +298,37 @@ def c_quit():
         print("Quitting game...")
 
 
-def c_inventory():
+def c_inventory(args: list):
     PrintOutInventory()
+
+    if (args == None or len(args) <= 0):
+        return
+    action = args[0].Get().lower()
+    
+    # Helper function to get item index from user
+    def GetItemIndexFromUser(question: str) -> int:
+        PrintOutInventory()
+        selection = input(question)
+        if (not selection.isnumeric() or selection == ''):
+            return GetItemIndexFromUser(question)
+        return int(selection) - 1
+    
+    # Get item index either from args or prompt user
+    index = args[1].Get() - 1 if len(args) > 1 else GetItemIndexFromUser(f"Select item index to {action} (leave blank to cancel): ")
+    
+    if action == "drop":
+        if (index < 0 or index >= len(gc.playerCharacter.items)):
+            print("Invalid item index!")
+            return
+        item = gc.playerCharacter.items[index]
+        if PromptYesNoQuestion(f"Are you sure you want to drop \"{item.name}\"?", False):
+            gc.playerCharacter.items.remove(item)
+            print(f"Dropped \"{item.name}\" from inventory.")
+    elif action == "use":
+        c_use_item_param_only(index + 1)
+    else:
+        print("Invalid action for inventory command!")
+    
 
 def PrintOutInventory():
     index = 1
@@ -314,7 +354,11 @@ def c_use(parameters):
 
     itemIndex = parameters[0].Get() - 1
     # Assume the target is the player if we don't provide a target
-    targetIndex = (parameters[1].Get() - 1) if len(parameters) > 1 else 0
+    if len(parameters) > 1:
+        targetIndex = parameters[1].Get() - 1
+    else:
+        c_use_item_param_only(itemIndex + 1)
+        return
 
     if itemIndex >= len(gc.playerCharacter.items):
         print("Invalid item")
@@ -328,6 +372,11 @@ def UseItemOn(itemIndex, targetIndex):
         return
     item: ItemSystem.UseableItem = gc.playerCharacter.items[itemIndex]
     target: Entity.Entity | None = gc.GetEntityByIndex(targetIndex)
+
+    # check if item is a weapon and if target is player ask to confirm
+    if (issubclass(type(item), ItemSystem.Weapon) and target == gc.playerCharacter):
+        if not PromptYesNoQuestion("Are you sure you want to use a weapon on yourself?", False):
+            return
 
     if (issubclass(type(item), ItemSystem.UseableItem) is False):
         print("Nothing happened! \"" + item.name + "\" is not a useable item!")
@@ -345,6 +394,9 @@ def c_use_no_params():
     if (not index.isnumeric() or index == ''):
         return
 
+    c_use_item_param_only(int(index))
+
+def c_use_item_param_only(itemIndex: int):
     PrintOutEntityList()
     target = input("Select target to use on (leave blank to default player): ")
     if target.strip() == '':
@@ -353,9 +405,7 @@ def c_use_no_params():
     if (not target.isnumeric() or target == ''):
         return
 
-    UseItemOn(int(index) - 1, int(target) - 1)
-
-    pass
+    UseItemOn(itemIndex - 1, int(target) - 1)
 
 def PromptYesNoQuestion(promptText: str = "Are you sure?", defaultResponse: bool = False, requireImplicitResponse: bool = False) -> bool:
     response = defaultResponse

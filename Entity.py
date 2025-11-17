@@ -87,6 +87,7 @@ class BasicEnemy(Entity):
             return super().Kill()
         toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
         gc.playerCharacter.level.GrantExperience(toDrop)
+        gc.playerCharacter.GiveGold(toDrop * 2)
         return super().Kill()
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -175,6 +176,7 @@ class Player(Entity):
         self.maxStamina = 5
         self.stamina = self.maxStamina
         self.level = LevelHandler.LevelHandler()
+        self.gold = 0
 
     def GiveItem(self, item: ItemSystem.Item | None):
         if item is None:
@@ -188,3 +190,15 @@ class Player(Entity):
             print(f"Godly power has blocked {amount} damage.")
             return
         return super().Damage(amount)
+    
+    def GiveGold(self, amount: int):
+        self.gold += amount
+        print(f"{self.name} received {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}! Current gold: {Fore.YELLOW}{Style.BRIGHT}{self.gold}{Style.RESET_ALL}")
+
+    def SpendGold(self, amount: int) -> bool:
+        if (self.gold < amount):
+            print(f"Not enough gold! Need {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}, has {Fore.YELLOW}{Style.BRIGHT}{self.gold} gold{Style.RESET_ALL}.")
+            return False
+        self.gold -= amount
+        print(f"{self.name} spent {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}. Current gold: {Fore.YELLOW}{Style.BRIGHT}{self.gold}{Style.RESET_ALL}")
+        return True

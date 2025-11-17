@@ -18,6 +18,11 @@ class Item():
     def SetRarity(self, rarity: int):
         self.rarity = rarity
         return self
+    
+    def GetGoldCost(self) -> int:
+        baseCost = 10
+        cost = int(baseCost * (100 / self.rarity))
+        return cost
 
 
 class UseableItem(Item):

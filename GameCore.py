@@ -126,12 +126,28 @@ def CheckEncounterStatus():
         return True
     
     rewardItem = Items.GetRandomItem(weighted=True)
-    if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {rewardItem.name} as a reward. Do you want to keep it?", True, True)):
+    if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True, True)):
         playerCharacter.GiveItem(rewardItem)
 
     EndPlayerTurn()
+    ChooseNextEvent()
 
-    for i in range(0, random.randrange(1, 6)):
+def ChooseNextEvent():
+    import Commands
+    eventRoll = random.randrange(0, 100)
+    if (eventRoll < 50):
+        print(f"{Fore.GREEN}You find a peaceful clearing. You take a moment to rest.{Style.RESET_ALL}")
+        playerCharacter.health += int(playerCharacter.maxHealth * 0.2)
+        if (playerCharacter.health > playerCharacter.maxHealth):
+            playerCharacter.health = playerCharacter.maxHealth
+        print(f"You recover some health! Current health: {Style.BRIGHT}{Fore.RED}{playerCharacter.health}/{playerCharacter.maxHealth}{Style.RESET_ALL}")
+    elif (eventRoll < 80):
+        print("You stumble upon a wandering merchant!")
+        Commands.c_shop()
+    
+    # Next encounter
+    print("You venture deeper into the wilderness...")
+    for i in range(0, random.randrange(1, 4)):
         SpawnEnemy(Enemies.CreateRandomEnemy())
 
 
@@ -151,6 +167,11 @@ def ProcessEnemyTurn():
     else:
         os.system('clear')
     tmpList = copy.copy(enemiesInScene)
+
+    # Don't bother if there are no enemies
+    if len(tmpList) <= 0:
+        return
+    
     print("Processing enemy turn!\n")
     time.sleep(1)
     for enemy in tmpList:
