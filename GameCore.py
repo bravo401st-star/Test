@@ -147,8 +147,11 @@ def ChooseNextEvent():
     
     # Next encounter
     print("You venture deeper into the wilderness...")
-    for i in range(0, random.randrange(1, 4)):
-        SpawnEnemy(Enemies.CreateRandomEnemy())
+    for i in range(0, random.randrange(1, 4 + playerCharacter.level.level // 2)):
+        level = max(1, playerCharacter.level.level + random.randrange(-1, 2))
+        enemy = Enemies.CreateRandomEnemy(1, level)
+        if enemy is not None: 
+            SpawnEnemy(enemy)
 
 
 def EndPlayerTurn():

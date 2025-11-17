@@ -72,6 +72,9 @@ class BasicEnemy(Entity):
     def OnSpawn(self):
         if self.actionSet is not None:
             self.actionSet.Setup(self)
+
+        # scale health by level
+        self.SetMaxHealth(self.maxHealth + ((self.level - 1) * 10), True)
         return super().OnSpawn()
 
     def SetDropExp(self, xp: range | int):
