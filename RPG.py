@@ -32,6 +32,7 @@ def GameLoop():
         PushInput(command)
 
     print("Game over!")
+    print(f"[Kills: {gc.killCount}] [Level Reached: {gc.playerCharacter.level.level}]")
 
 def GetInput() -> str:
     if (gc.showPlayerInfo):

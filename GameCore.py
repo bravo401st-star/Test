@@ -72,6 +72,7 @@ def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy | None:
     
 def OnEntityDie(entity: Entity.Entity | None):
     global gameRunning
+    global killCount
     if entity == None:
         return
     if type(entity) is Entity.Player:
@@ -82,6 +83,7 @@ def OnEntityDie(entity: Entity.Entity | None):
     if issubclass(type(entity), Entity.BasicEnemy):
         print(entity.name + " has died!")
         RemoveEnemyFromScene(entity)
+        killCount += 1
         return
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
@@ -187,3 +189,4 @@ enemiesInScene = []
 gameRunning = True
 showPlayerInfo = True
 godmode = False
+killCount = 0

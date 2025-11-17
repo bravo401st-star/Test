@@ -129,7 +129,7 @@ class EnergyPotion(UseableItem):
         self.energy = 0
 
     def GetDesc(self):
-        return super().GetDesc() + f" - Energy Recovery: {self.energy}"
+        return super().GetDesc() + f" - Stamina Recovery: {self.energy}"
     
     def Use(self, target):
         if target != gc.playerCharacter or gc.playerCharacter.stamina >= gc.playerCharacter.maxStamina:

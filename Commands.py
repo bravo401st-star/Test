@@ -288,6 +288,8 @@ def c_help(args: list):
         return
 
     print(f"\nYou can type \"{RPG.REPEAT_COMMAND}\" to repeat last command.")
+    print(f"You can type \"help (command)\" to find out more info on a command!")
+    print("You can shorten commands just like in Packet Tracer! (Except parameter arguments because I'm lazy.)")
     print("Command List:\n")
     for command in command_map:
         hidden = command_map[command].hide
@@ -314,7 +316,6 @@ def c_inventory(args: list):
     
     # Helper function to get item index from user
     def GetItemIndexFromUser(question: str) -> int:
-        PrintOutInventory()
         selection = input(question)
         if (not selection.isnumeric() or selection == ''):
             return GetItemIndexFromUser(question)
@@ -415,7 +416,7 @@ def c_use_item_param_only(itemIndex: int):
 
 def PromptYesNoQuestion(promptText: str = "Are you sure?", defaultResponse: bool = False, requireImplicitResponse: bool = False) -> bool:
     response = defaultResponse
-    command = input(f"{promptText} ({"Y/n" if defaultResponse else "y/N"}): ")
+    command = input(f"{promptText} ({'Y/n' if defaultResponse else 'y/N'}): ")
     commandLeftBlank = command.strip() == ""
 
     # If we input nothing and we don't require an implicit response then go default
