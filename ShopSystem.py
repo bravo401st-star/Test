@@ -3,6 +3,7 @@ import Items
 import ItemSystem
 import GameCore as gc
 import Commands
+from colorama import Fore, Style
 
 class Shop:
     def __init__(self, inventorySize: int = 5):
@@ -17,8 +18,12 @@ class Shop:
             self.inventory.append(item)
         pass
 
+    def PrintMoney(self):
+        print(f"You have {Fore.YELLOW}{Style.BRIGHT}{gc.playerCharacter.GetGold()}{Style.RESET_ALL} gold.")
+
     def OpenShop(self):
         print("Welcome strange traveller! What would you like to do?")
+        self.PrintMoney()
         while True:
             print("1. Buy Items")
             print("2. Sell Items")
@@ -39,12 +44,14 @@ class Shop:
                 print("Invalid choice. Please try again.")
 
     def BuyItems(self):
+        self.PrintMoney()
         print("Here are the items available for purchase:")
         
         # List out items in inventory
         for index, item in enumerate(self.inventory):
             cost = item.GetGoldCost()
-            print(f"{index + 1}. {item.GetDesc()} - Price: {cost} gold")
+            priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
+            print(f"{index + 1}. {priceTag} {item.GetDesc()}")
 
         # Select item to buy
         choice = input("\nEnter the item you wish to buy, or '0' to cancel: ")
@@ -72,10 +79,12 @@ class Shop:
             self.OpenShop()
             return
         
+        self.PrintMoney()
         print("Here are your items available for sale:")
         for index, item in enumerate(gc.playerCharacter.items):
             sellPrice = item.GetGoldCost() // 2
-            print(f"{index + 1}. {item.GetDesc()} - Sell Price: {sellPrice} gold")
+            sellPriceTag = f"[{Fore.YELLOW}{Style.BRIGHT}+{sellPrice} gold{Style.RESET_ALL}]"
+            print(f"{index + 1}. {sellPriceTag} {item.GetDesc()}")
 
 
         choice = input("\nEnter the item you wish to sell, or '0' to cancel: ")

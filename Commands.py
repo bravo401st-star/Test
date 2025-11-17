@@ -102,12 +102,19 @@ command_map = {
     "god-mode": Command("c_godmode", "Toggle godmode", True),
     "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
     "delete-enemy": Command("c_deleteenemy", "Deletes enemy without \"killing\" them", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
-    "shop": Command("c_shop", "Opens the shop (for testing)", True),
+    "trigger-shop": Command("c_shop", "Opens the shop (for testing)", True),
+    "give-gold": Command("c_givegold", "Give gold", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, False)),
 }
 
 def c_clear():
     import os
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def c_givegold(arguments: list):
+    if len(arguments) <= 0:
+        return
+    amount = arguments[0].Get()
+    gc.playerCharacter.GiveGold(amount)
 
 def c_killenemy(arguments: list):
     if len(arguments) > 0:
@@ -332,7 +339,8 @@ def c_inventory(args: list):
 
 def PrintOutInventory():
     index = 1
-    print("\nInventory:\n")
+    print("Inventory:\n")
+    print(f"[{Fore.YELLOW}{Style.BRIGHT}{gc.playerCharacter.GetGold()} Gold{Style.RESET_ALL}]")
     for item in gc.playerCharacter.items:
         useableFlag = issubclass(type(item), ItemSystem.UseableItem)
         text = ""
@@ -344,8 +352,6 @@ def PrintOutInventory():
         text += Style.RESET_ALL
         print(text)
         index += 1
-    print("\n")
-
 
 def c_use(parameters):
     if len(parameters) <= 0 or parameters == None:

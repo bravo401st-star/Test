@@ -74,7 +74,7 @@ class BasicEnemy(Entity):
             self.actionSet.Setup(self)
 
         # scale health by level
-        self.SetMaxHealth(self.maxHealth + ((self.level - 1) * 10), True)
+        self.SetMaxHealth(self.maxHealth * round(1 + 0.10 * (self.level - 1)), True)
         return super().OnSpawn()
 
     def SetDropExp(self, xp: range | int):
@@ -205,3 +205,9 @@ class Player(Entity):
         self.gold -= amount
         print(f"{self.name} spent {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}. Current gold: {Fore.YELLOW}{Style.BRIGHT}{self.gold}{Style.RESET_ALL}")
         return True
+    
+    def GetGold(self) -> int:
+        return self.gold
+    
+    def CanAfford(self, amount: int) -> bool:
+        return self.gold >= amount
