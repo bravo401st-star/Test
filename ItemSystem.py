@@ -1,4 +1,5 @@
 import GameCore as gc
+import StatusEffect
 
 class Item():
     tag = "ITEM"
@@ -30,6 +31,7 @@ class UseableItem(Item):
         super().__init__()
         self.useCost = 1
         self.useCount = -1
+        self.effectToApply: None | type = None
 
     def GetDesc(self):
         return super().GetDesc() + " - COST: " + str(self.useCost)
@@ -46,12 +48,20 @@ class UseableItem(Item):
         
         gc.playerCharacter.stamina -= self.useCost
         print("Using " + self.name + " on " + target.name)
+        if (self.effectToApply != None):
+            StatusEffect.Apply(target, self.effectToApply)
 
         if (self.useCount > 0):
             self.useCount -= 1
             if (self.useCount == 0):
                 self.RemoveSelfFromInventory()
-        pass
+
+    def SetEffectToApply(self, effectType: type):
+        if not issubclass(effectType, StatusEffect.AEffect):
+            return self
+        
+        self.effectToApply = effectType
+        return self
 
     def RemoveSelfFromInventory(self):
         if (self in gc.playerCharacter.items):
@@ -95,6 +105,22 @@ class VampireDagger(Weapon):
             return False
         
         gc.playerCharacter.Heal(self.damage // 2)
+
+class HolyPotion(UseableItem):
+    tag = "POTION"
+
+    def GetDesc(self):
+        return super().GetDesc() + " - Removes negative status effects and protects from future effects"
+    
+    def Use(self, target):
+        import StatusEffect
+        if super().Use(target) == False:
+            return False
+        
+        StatusEffect.Apply(target, StatusEffect.BlessedEffect, 5)
+        target.ClearStatusEffects(True)
+        
+        return True
 
 
 class HealthPotion(UseableItem):
@@ -154,11 +180,13 @@ itemsList = [
     Weapon().SetName("Mace").SetRarity(50).SetUseCost(3).SetDamage(40),
     Weapon().SetName("Dagger").SetRarity(45).SetUseCost(1).SetDamage(7),
     VampireDagger().SetName("Vampire Dagger").SetRarity(20).SetUseCost(1).SetDamage(10),
+    Weapon().SetName("Poison Dagger").SetRarity(30).SetUseCost(1).SetDamage(8).SetEffectToApply(StatusEffect.PoisonEffect),
 
     # Potions
     HealthPotion().SetName("Lesser Health Potion").SetRarity(75).SetUseCost(1).SetUses(3).SetHealing(20),
     HealthPotion().SetName("Greater Health Potion").SetRarity(30).SetUseCost(1).SetUses(1).SetHealing(50),
     EnergyPotion().SetName("Energy Potion").SetRarity(35).SetUseCost(1).SetUses(2).SetEnergy(3),
+    HolyPotion().SetName("Holy Potion").SetRarity(37).SetUseCost(1).SetUses(1),
 
     # Basic Items
     Item().SetName("Cloth Fragment").SetRarity(90)

@@ -9,16 +9,44 @@ from colorama import Fore, Back, Style
 import Actions
 from EnemyTags import Tags
 
-class Entity(ABC):
+class AEntity(ABC):
     def __init__(self):
         self.health = 100
         self.name = "Unnamed Entity"
         self.level = 1
         self.maxHealth = self.health
         self.additionalDamage = 0
+        self.effects = []
 
     def OnSpawn(self):
         pass
+
+    def DoTurn(self):
+        effectsToRemove = []
+        for effect in self.effects:
+            effect.OnEffectTick()
+            if effect.stacks <= 0:
+                effectsToRemove.append(effect)
+
+        for effect in effectsToRemove:
+            self.RemoveEffect(effect)
+        pass
+
+    def RemoveEffect(self, effect):
+        self.effects.remove(effect)
+        effect.OnEffectRemove()
+
+    def ClearStatusEffects(self, ignorePositive = False):
+        for effect in reversed(self.effects):
+            if ignorePositive and effect.positive:
+                continue
+            self.RemoveEffect(effect)
+
+    def HasEffect(self, effectType: type) -> bool:
+        for effect in self.effects:
+            if type(effect) is effectType:
+                return True
+        return False
 
     def SetName(self, name: str):
         self.name = name
@@ -59,9 +87,20 @@ class Entity(ABC):
 
         print(self.name + " healed for " + str(amount) + " health!")
         return True
-e_EntityDeath = EventSystem.Event(Entity)
+    
+    def GetEffectListText(self) -> str | None:
+        if len(self.effects) <= 0:
+            return None
+        effectList = "["
 
-class BasicEnemy(Entity):
+        for effect in self.effects:
+            effectList += f"{effect.GetName()} ({effect.stacks}), "
+
+        return effectList[:-2] + "]"
+
+e_EntityDeath = EventSystem.Event(AEntity)
+
+class BasicEnemy(AEntity):
     def __init__(self):
         super().__init__()
         self.exp = range(1, 2)
@@ -100,9 +139,9 @@ class BasicEnemy(Entity):
     def DoTurn(self):
         if self.actionSet != None:
             self.actionSet.PerformNextAction()
+        return super().DoTurn()
 
     def SetTags(self, *tags: str):
-        
         self.tags = list(tags)
         return self
 
@@ -172,7 +211,7 @@ class TransformOnDeathEnemy(BasicEnemy):
         gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.transformToIndex), True)
         return super().Kill()
 
-class Player(Entity):
+class Player(AEntity):
     def __init__(self):
         super().__init__()
         self.items = []

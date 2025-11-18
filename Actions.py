@@ -36,14 +36,25 @@ class AAction(ABC):
 class AttackAction(AAction):
     def __init__(self, damage: int):
         self.damage = damage
+        self.effectsOnHit: list[type] = []
         super().__init__()
 
     def PerformAction(self):
+        import StatusEffect
         gc.playerCharacter.Damage(self.damage + self.parentEntity.additionalDamage)
+
+        for effect in self.effectsOnHit:
+            StatusEffect.Apply(gc.playerCharacter, effect)
+
         return super().PerformAction()
     
     def GetShortDesc(self):
         return super().GetShortDesc() + f" for {self.damage + self.parentEntity.additionalDamage} damage!"
+    
+    def SetEffectsOnHit(self, *effects):
+        for effect in effects:
+            self.effectsOnHit.append(effect)
+        return self
     
 class HealAction(AAction):
     def __init__(self, healing: int):

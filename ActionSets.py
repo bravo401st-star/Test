@@ -1,8 +1,9 @@
 import Actions as AP
+import StatusEffect
 
 goblin_action_set = AP.ActionSet()
 goblin_action_set.AppendAction(AP.AttackAction(10).SetName("Slash").SetShortDesc("Preparing to slash"))
-goblin_action_set.AppendAction(AP.AttackAction(30).SetName("Stab").SetShortDesc("Preparing to stab"))
+goblin_action_set.AppendAction(AP.AttackAction(20).SetName("Stab").SetShortDesc("Preparing to stab"))
 goblin_action_set.AppendAction(AP.HealAction(10).SetName("Heal").SetShortDesc("Healing self").SetChance(0.5))
 
 goblin_necromancer_action_set = AP.ActionSet()
@@ -26,13 +27,12 @@ troll_brute_action_set.AppendAction(AP.AttackAction(25).SetName("Punch").SetShor
 troll_brute_action_set.AppendAction(AP.AttackAction(10).SetName("Slap").SetShortDesc("Preparing to slap").SetChance(0.5))
 
 cave_bat_action_set = AP.ActionSet()
-cave_bat_action_set.AppendAction(AP.AttackAction(5).SetName("Bite").SetShortDesc("Preparing to bite").SetChance(0.5))
+cave_bat_action_set.AppendAction(AP.AttackAction(5).SetName("Bite").SetShortDesc("Preparing to bite").SetChance(0.5).SetEffectsOnHit(StatusEffect.BleedEffect, StatusEffect.BleedEffect))
 cave_bat_action_set.AppendAction(AP.AttackAction(2).SetName("Nibble").SetShortDesc("Preparing to nibble"))
-cave_bat_action_set.AppendAction(AP.AttackAction(5).SetName("Bite").SetShortDesc("Preparing to bite").SetChance(0.5))
+cave_bat_action_set.AppendAction(AP.AttackAction(5).SetName("Bite").SetShortDesc("Preparing to bite").SetChance(0.5).SetEffectsOnHit(StatusEffect.BleedEffect, StatusEffect.BleedEffect))
 
 bog_skeleton_action_set = AP.ActionSet()
-bog_skeleton_action_set.AppendAction(AP.AttackAction(15).SetName("Slash").SetShortDesc("Preparing to slash"))
-
+bog_skeleton_action_set.AppendAction(AP.AttackAction(15).SetName("Slash").SetShortDesc("Preparing to slash").SetEffectsOnHit(StatusEffect.BoggedEffect, StatusEffect.BoggedEffect))
 
 boggy_pile_action_set = AP.ActionSet()
 boggy_pile_action_set.AppendAction(AP.NothingAction().SetName("Shaking").SetShortDesc("Suspicous shaking..."))

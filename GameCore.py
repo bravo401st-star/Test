@@ -70,7 +70,7 @@ def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy | None:
         return None
     return listOfTag[random.randrange(0, len(listOfTag))]
     
-def OnEntityDie(entity: Entity.Entity | None):
+def OnEntityDie(entity: Entity.AEntity | None):
     global gameRunning
     global killCount
     if entity == None:
@@ -99,7 +99,7 @@ def RemoveEnemyFromScene(enemy):
 def GetCountOfEntityType(entityType: type) -> int:
     global enemiesInScene
     count = 0
-    if not issubclass(entityType, Entity.Entity):
+    if not issubclass(entityType, Entity.AEntity):
         return count
     
     for entity in enemiesInScene:
@@ -111,7 +111,7 @@ def GetCountOfEntityType(entityType: type) -> int:
 def GetAllEnemiesOfType(entityType: type) -> list | None:
     global enemiesInScene
     enemiesOfType = []
-    if not issubclass(entityType, Entity.Entity):
+    if not issubclass(entityType, Entity.AEntity):
         return None
     
     for entity in enemiesInScene:
@@ -161,6 +161,7 @@ def EndPlayerTurn():
     ProcessEnemyTurn()
     print("\n\nNew turn!")
     playerCharacter.stamina = playerCharacter.maxStamina
+    playerCharacter.DoTurn()
     pass
 
 

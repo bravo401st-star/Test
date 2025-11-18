@@ -243,6 +243,9 @@ def c_status():
     print("Level: " + str(gc.playerCharacter.level))
     print(f"Experience: {gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}")
 
+    effectsText = gc.playerCharacter.GetEffectListText()
+    if effectsText != None:
+        print(f"Effects: {effectsText}")
 
 def c_endTurn():
     print("Ending turn!")
@@ -253,7 +256,8 @@ def c_entities():
     PrintOutEntityList()
 
 def PrintOutEntityList():
-    print("\nEntities on the map: \n1: Player" + " [HP: " + str(gc.playerCharacter.health) + "]" + " [LVL: " + str(gc.playerCharacter.level) + "]")
+    effectsText = gc.playerCharacter.GetEffectListText()
+    print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
     index = 2
     print("-"*40)
     for enemy in gc.enemiesInScene:
@@ -261,7 +265,12 @@ def PrintOutEntityList():
         actionText = "[Just chillin']"
         if action is not None:
             actionText = f"!![{Style.BRIGHT}{Fore.RED}{enemy.actionSet.GetNextAction().GetShortDesc()}{Style.RESET_ALL}]!!"
-        print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] {actionText}")
+
+        # Handle effects text
+        effectsText = enemy.GetEffectListText()
+
+
+        print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
 
 def c_shop():
@@ -378,7 +387,7 @@ def UseItemOn(itemIndex, targetIndex):
     if (itemIndex >= len(gc.playerCharacter.items)):
         return
     item: ItemSystem.UseableItem = gc.playerCharacter.items[itemIndex]
-    target: Entity.Entity | None = gc.GetEntityByIndex(targetIndex)
+    target: Entity.AEntity | None = gc.GetEntityByIndex(targetIndex)
 
     # check if item is a weapon and if target is player ask to confirm
     if (issubclass(type(item), ItemSystem.Weapon) and target == gc.playerCharacter):
