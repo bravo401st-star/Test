@@ -27,7 +27,8 @@ class Shop:
         while True:
             print("1. Buy Items")
             print("2. Sell Items")
-            print("3. Exit Shop")
+            print("3. Upgrade Items")
+            print("4. Exit Shop")
             choice = input("Enter your choice: ")
 
             Commands.c_clear()
@@ -38,10 +39,49 @@ class Shop:
                 self.SellItems()
                 return
             elif choice == "3":
+                self.UpgradeItems()
+                return
+            elif choice == "4":
                 print("Thank you for visiting my shop!")
                 return
             else:
                 print("Invalid choice. Please try again.")
+
+    def UpgradeItems(self):
+        self.PrintMoney()
+        print("Choose an item to upgrade!")
+
+        # Get all items that are able to be leveled up
+        levelableItems: list[ItemSystem.LevelableItem] = []
+
+        for item in gc.playerCharacter.items:
+            if issubclass(type(item), ItemSystem.LevelableItem):
+                levelableItems.append(item)
+
+        # List out items in inventory
+        for index, item in enumerate(levelableItems):
+            cost = item.GetGoldCost() * item.itemLevel
+            priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
+            print(f"{index + 1}. {priceTag} {item.GetDesc()}")
+
+        # Select item to buy
+        choice = input("\nEnter the item you wish to upgrade, or '0' to cancel: ")
+        if choice.isdigit():
+            choiceIndex = int(choice) - 1
+            if choiceIndex == -1:
+                print("Purchase cancelled.")
+                self.OpenShop()
+                return
+            if choiceIndex < len(levelableItems):
+                itemToBuy: ItemSystem.LevelableItem = levelableItems[choiceIndex]
+                cost = itemToBuy.GetGoldCost() * itemToBuy.itemLevel
+                if gc.playerCharacter.SpendGold(cost):
+                    itemToBuy.Upgrade()
+                    print(f"{itemToBuy.name} has been upgraded to level {itemToBuy.itemLevel}!")
+            else:
+                print("Invalid item selection.")
+        
+        self.OpenShop()
 
     def BuyItems(self):
         self.PrintMoney()

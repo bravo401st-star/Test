@@ -248,6 +248,8 @@ def c_status():
         print(f"Effects: {effectsText}")
 
 def c_endTurn():
+    if not PromptYesNoQuestion("Are you sure you want to end your turn?", False):
+        return
     print("Ending turn!")
     gc.EndPlayerTurn()
 

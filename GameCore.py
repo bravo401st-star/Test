@@ -13,7 +13,8 @@ def Init():
     print("\nI see... your name is " + playerCharacter.name + "!"
            + "\n\nPlease take these items and begin your quest!!")
     playerCharacter.GiveItem(Items.GetItemByName("Rusty Sword"))
-    playerCharacter.GiveItem(Items.GetRandomItem(weighted=True))
+    playerCharacter.GiveItem(Items.GetItemByName("Lesser Health Potion"))
+
     SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
 
 def SpawnEnemy(enemy: Entity.BasicEnemy | None, force: bool = False):
@@ -179,7 +180,6 @@ def ProcessEnemyTurn():
         return
     
     print("Processing enemy turn!\n")
-    time.sleep(1)
     for enemy in tmpList:
         enemy.DoTurn()
         time.sleep(0.2)
