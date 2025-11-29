@@ -7,6 +7,7 @@ import Entity
 import Enemies
 import CommandParam
 from colorama import Fore, Back, Style
+import Relics
 
 # To-do: Create a more robust command paramter system, parameter type checking, hints
 #        Dynamic command list depending on current environment
@@ -95,7 +96,7 @@ command_map = {
     "clear": Command("c_clear", "Clears the console"),
 
     # CHEAT COMMANDS
-    "spawn-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, False), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
+    "spawn-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "item-list": Command("c_itemlist", "Shows all items in game by index", True),
     "entity-list": Command("c_entitylist", "Shows all entities in game by index", True),
     "spawn-enemy": Command("c_spawnenemy", "Spawn an enemy into the scene", True).SetParams(CommandParam.Parameter("enemyIndex", CommandParam.IntArgument, True), CommandParam.Parameter("level", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
@@ -104,11 +105,36 @@ command_map = {
     "delete-enemy": Command("c_deleteenemy", "Deletes enemy without \"killing\" them", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
     "trigger-shop": Command("c_shop", "Opens the shop (for testing)", True),
     "give-gold": Command("c_givegold", "Give gold", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, False)),
+    "give-relic": Command("c_giverelic", "Give relic", True).SetParams(CommandParam.Parameter("relicIndex", CommandParam.IntArgument, True)),
+    "relic-list": Command("c_reliclist", "Shows all relics in game by index", True),
 }
 
 def c_clear():
     import os
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def c_giverelic(arguments: list):
+    if len(arguments) <= 0:
+        c_reliclist()
+        selection = input("Choose relic to give: ")
+        if (not selection.isnumeric() or selection == ''):
+            print("Invalid selection.")
+            return
+        relicIndex = int(selection)
+    else:
+        relicIndex = arguments[0].Get()
+    relic = Relics.GetRelicByIndex(relicIndex)
+    if relic is None:
+        print("Invalid relic index!")
+        return
+    gc.playerCharacter.GiveRelic(relic)
+
+def c_reliclist():
+    index = 0
+    print("Relics List: ")
+    for relic in Relics.relicsList:
+        print(str(index) + ": " + relic.name + " - " + relic.description)
+        index += 1
 
 def c_givegold(arguments: list):
     if len(arguments) <= 0:
@@ -216,15 +242,21 @@ def c_itemlist():
     index = 0
     print("Items List: ")
     for item in ItemSystem.itemsList:
-        print(str(index) + ": " + item.name)
+        print(f"{index}: [{item.tag}] {item.name}")
         index += 1
     pass
 
 
 def c_spawnitem(arguments: list):
     if (len(arguments) <= 0):
-        return
-    itemIndex = arguments[0].Get()
+        c_itemlist()
+        selection = input("Choose item to spawn: ")
+        if (not selection.isnumeric() or selection == ''):
+            print("Invalid selection.")
+            return
+        itemIndex = int(selection)
+    else:
+        itemIndex = arguments[0].Get()
     amount = arguments[1].Get() if len(arguments) > 1 else 1
     if (amount > 8):
         print("Limiting amount spawned to '8' to save sanity.")
@@ -242,6 +274,14 @@ def c_status():
     print("Stamina: (" + str(gc.playerCharacter.stamina) + "/" + str(gc.playerCharacter.maxStamina) + ")")
     print("Level: " + str(gc.playerCharacter.level))
     print(f"Experience: {gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}")
+    print("Gold: " + str(gc.playerCharacter.GetGold()))
+    print(f"Evasion: {gc.playerCharacter.evasion * 100}%")
+    print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
+    print(f"Damage Multiplier: {round(gc.playerCharacter.damageMultiplier * 100, 2)}%")
+    print(f"Gold Multiplier: {round(gc.goldMultiplier * 100, 2)}%")
+    print(f"Experience Multiplier: {round(gc.experienceMultiplier * 100, 2)}%")
+    print(f"Loot Multiplier: {round((gc.additionalLootChance + 1) * 100, 2)}%")
+    print(f"Damage Resistance: {round(gc.playerCharacter.damageResistance * 100, 2)}%")
 
     effectsText = gc.playerCharacter.GetEffectListText()
     if effectsText != None:
@@ -364,6 +404,17 @@ def PrintOutInventory():
         text += Style.RESET_ALL
         print(text)
         index += 1
+
+    # Print out relics
+    if len(gc.playerCharacter.relics) > 0:
+        print("\nRelics:")
+        index = 1
+        for relic in gc.playerCharacter.relics:
+            extraText = ""
+            if type(relic) is Relics.SoulvesselJar:
+                extraText = f" [{Fore.MAGENTA}{Style.BRIGHT}{Relics.SoulvesselJar.killsToFill - Relics.soulvesselJarKillsNeeded}/{Relics.SoulvesselJar.killsToFill}{Style.RESET_ALL}]"
+            print(f"{index}: {relic.name} - {relic.description}{extraText}")
+            index += 1
 
 def c_use(parameters):
     if len(parameters) <= 0 or parameters == None:

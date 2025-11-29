@@ -41,7 +41,7 @@ class AttackAction(AAction):
 
     def PerformAction(self):
         import StatusEffect
-        gc.playerCharacter.Damage(self.damage + self.parentEntity.additionalDamage)
+        gc.playerCharacter.Damage(self.damage + self.parentEntity.additionalRawDamage)
 
         for effect in self.effectsOnHit:
             StatusEffect.Apply(gc.playerCharacter, effect)
@@ -49,7 +49,7 @@ class AttackAction(AAction):
         return super().PerformAction()
     
     def GetShortDesc(self):
-        return super().GetShortDesc() + f" for {self.damage + self.parentEntity.additionalDamage} damage!"
+        return super().GetShortDesc() + f" for {self.damage + self.parentEntity.additionalRawDamage} damage!"
     
     def SetEffectsOnHit(self, *effects):
         for effect in effects:

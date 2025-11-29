@@ -1,5 +1,6 @@
 import GameCore as gc
 import StatusEffect
+import Relics
 
 class Item():
     tag = "ITEM"
@@ -100,15 +101,26 @@ class Weapon(UseableItem, LevelableItem):
     def __init__(self):
         super().__init__()
         LevelableItem.__init__(self)
-
         self.baseDamage = 1
 
     def GetDesc(self):
         from colorama import Fore, Style
-        return f"[{Fore.YELLOW}{Style.BRIGHT}{self.itemLevel}{Style.RESET_ALL}] " + super().GetDesc() + f" - Damage: {self.baseDamage}{f' + {self.CalculateAdditionalLevelDamage()}'}"
+        return f"[{Fore.YELLOW}{Style.BRIGHT}{self.itemLevel}{Style.NORMAL}{Fore.RESET}] " + super().GetDesc() + f" - Damage: {self.GetDamage()}"
 
     def OnUse(self, target):
-        target.Damage(self.GetDamage())
+        # get critial hit chance
+        import random
+        from colorama import Fore, Style
+        critChance = gc.playerCharacter.critialHitChance
+        isCrit = random.random() < critChance
+        if gc.playerHasAttackedThisTurn == False and gc.playerCharacter.HasRelic(Relics.OraclesWhisper):
+            isCrit = True
+        if isCrit:
+            print(Fore.RED + Style.BRIGHT + "Critical Hit!" + Style.RESET_ALL)
+            target.Damage(self.GetDamage() * 2)
+        else:
+            target.Damage(self.GetDamage())
+        gc.playerHasAttackedThisTurn = True
         super().OnUse(target)
 
     def SetDamage(self, damage: int):
@@ -116,12 +128,17 @@ class Weapon(UseableItem, LevelableItem):
         return self
     
     def GetDamage(self) -> int:
-        return self.baseDamage + self.CalculateAdditionalLevelDamage()
+        damage = self.baseDamage + self.CalculateAdditionalLevelDamage()
+        if (not gc.playerHasAttackedLastTurn) and gc.playerCharacter.HasRelic(Relics.StonehoofTotem):
+            damage = round(damage * 1.5)
+        damage = round(damage * gc.playerCharacter.damageMultiplier)
+        damage += gc.playerCharacter.additionalRawDamage
+        return damage
     
     def CalculateAdditionalLevelDamage(self) -> int:
         return round(self.baseDamage * ((self.itemLevel - 1) * Weapon.DAMAGE_MULT_PER_LEVEL))
     
-class VampireDagger(Weapon):
+class LifestealWeapon(Weapon):
     def GetDesc(self):
         return super().GetDesc() + " - Heals for half damage dealt."
 
@@ -146,10 +163,11 @@ class RapidfireWeapon(Weapon):
     def SetAttackCount(self, count: int):
         self.attackCount = count
         return self
-
-class HolyPotion(UseableItem):
+    
+class Potion(UseableItem):
     tag = "POTION"
 
+class HolyPotion(Potion):
     def GetDesc(self):
         return super().GetDesc() + " - Removes negative status effects and protects from future effects"
     
@@ -161,9 +179,7 @@ class HolyPotion(UseableItem):
         return True
 
 
-class HealthPotion(UseableItem):
-    tag = "POTION"
-
+class HealthPotion(Potion):
     def __init__(self):
         super().__init__()
         self.healing = 0
@@ -185,9 +201,7 @@ class HealthPotion(UseableItem):
         self.healing = healing
         return self
     
-class EnergyPotion(UseableItem):
-    tag = "POTION"
-
+class EnergyPotion(Potion):
     def __init__(self):
         super().__init__()
         self.energy = 0
@@ -204,8 +218,73 @@ class EnergyPotion(UseableItem):
     def SetEnergy(self, energy: int):
         self.energy = energy
         return self
+    
+class RegenerationPotion(Potion):
+    def __init__(self):
+        super().__init__()
+        self.duration = 0
 
+    def GetDesc(self):
+        return super().GetDesc() + f" - Heals per turn for {self.duration} turns."
 
+    def OnUse(self, target):
+        import StatusEffect
+        StatusEffect.Apply(target, StatusEffect.RegenerationEffect, self.duration)
+        super().OnUse(target)
+
+    def SetDuration(self, duration: int):
+        self.duration = duration
+        return self
+
+itemsList = [
+    # Weapons
+    Weapon().SetName("Rusty Sword").SetRarity(95).SetUseCost(2).SetDamage(15),
+    Weapon().SetName("Excalibur").SetRarity(1).SetUseCost(2).SetDamage(55),
+    Weapon().SetName("Adventurer's Sword").SetRarity(40).SetUseCost(2).SetDamage(25),
+    Weapon().SetName("Mace").SetRarity(35).SetUseCost(3).SetDamage(40),
+    Weapon().SetName("Dagger").SetRarity(50).SetUseCost(1).SetDamage(7),
+    LifestealWeapon().SetName("Vampire Dagger").SetRarity(15).SetUseCost(1).SetDamage(10),
+    Weapon().SetName("Poison Dagger").SetRarity(25).SetUseCost(1).SetDamage(8).SetEffectToApply(StatusEffect.PoisonEffect),
+    RapidfireWeapon().SetName("Shank").SetRarity(48).SetUseCost(1).SetDamage(2).SetAttackCount(4).SetEffectToApply(StatusEffect.BleedEffect),
+
+    # New Weapons
+    Weapon().SetName("Iron Longsword").SetRarity(55).SetUseCost(2).SetDamage(20),
+    Weapon().SetName("Battle Axe").SetRarity(25).SetUseCost(3).SetDamage(45),
+    RapidfireWeapon().SetName("Throwing Knives").SetRarity(30).SetUseCost(1).SetDamage(3).SetAttackCount(3),
+    Weapon().SetName("Warhammer").SetRarity(12).SetUseCost(4).SetDamage(60),
+    LifestealWeapon().SetName("Crimson Fang").SetRarity(5).SetUseCost(1).SetDamage(15),
+
+    # Potions
+    HealthPotion().SetName("Lesser Health Potion").SetRarity(75).SetUseCost(1).SetUses(3).SetHealing(20),
+    HealthPotion().SetName("Greater Health Potion").SetRarity(30).SetUseCost(1).SetUses(1).SetHealing(50),
+    EnergyPotion().SetName("Energy Potion").SetRarity(35).SetUseCost(1).SetUses(2).SetEnergy(3),
+    HolyPotion().SetName("Holy Potion").SetRarity(25).SetUseCost(1).SetUses(1),
+    RegenerationPotion().SetName("Regeneration Potion").SetRarity(60).SetUseCost(1).SetUses(1).SetDuration(7),
+
+    # New Potions
+    HealthPotion().SetName("Major Health Potion").SetRarity(10).SetUseCost(1).SetUses(1).SetHealing(100),
+    EnergyPotion().SetName("Greater Energy Potion").SetRarity(15).SetUseCost(1).SetUses(1).SetEnergy(6),
+    #Item().SetName("Antidote").SetRarity(40),
+    #Item().SetName("Smoke Bomb").SetRarity(22),
+
+    # Basic Items
+    Item().SetName("Cloth Fragment").SetRarity(90),
+    Item().SetName("Golden Chalice").SetRarity(4),
+    Item().SetName("Silver Nugget").SetRarity(15),
+    Item().SetName("Gravel Piece").SetRarity(96),
+    Item().SetName("Wooden Log").SetRarity(92),
+    Item().SetName("Silverware").SetRarity(35),
+    Item().SetName("Random Jewel").SetRarity(12),
+
+    # New Basic Items
+    Item().SetName("Iron Chunk").SetRarity(55),
+    Item().SetName("Fur Pelt").SetRarity(60),
+    Item().SetName("Ancient Coin").SetRarity(8),
+    Item().SetName("Rare Gemstone").SetRarity(3),
+    Item().SetName("Obsidian Shard").SetRarity(18)
+]
+
+"""
 itemsList = [
     # Weapons
     Weapon().SetName("Rusty Sword").SetRarity(100).SetUseCost(2).SetDamage(15),
@@ -232,3 +311,4 @@ itemsList = [
     Item().SetName("Silverware").SetRarity(35),
     Item().SetName("Random Jewel").SetRarity(12)
 ]
+"""

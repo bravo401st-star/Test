@@ -4,17 +4,21 @@ import ItemSystem
 import GameCore as gc
 import Commands
 from colorama import Fore, Style
+import Relics
 
 class Shop:
     def __init__(self, inventorySize: int = 5):
         self.inventory: list[ItemSystem.Item] = []
+        hasRelic = gc.playerCharacter.HasRelic(Relics.GildedCompass)
+        inventorySize += 1 if hasRelic else 0
         self.GenerateInventory(inventorySize)
+        self.discount = 0.8 if hasRelic else 1.0
         pass
 
     def GenerateInventory(self, numItems: int):
         self.inventory.clear()
         for _ in range(numItems):
-            item = Items.GetRandomItem(weighted=True)
+            item = Items.GetRandomItem(weighted=True, rolls=1, filter=[ItemSystem.Item])
             self.inventory.append(item)
         pass
 
@@ -60,7 +64,7 @@ class Shop:
 
         # List out items in inventory
         for index, item in enumerate(levelableItems):
-            cost = item.GetGoldCost() * item.itemLevel
+            cost = int(item.GetGoldCost() * self.discount) * item.itemLevel
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {priceTag} {item.GetDesc()}")
 
@@ -74,7 +78,7 @@ class Shop:
                 return
             if choiceIndex < len(levelableItems):
                 itemToBuy: ItemSystem.LevelableItem = levelableItems[choiceIndex]
-                cost = itemToBuy.GetGoldCost() * itemToBuy.itemLevel
+                cost = int(itemToBuy.GetGoldCost() * self.discount) * itemToBuy.itemLevel
                 if gc.playerCharacter.SpendGold(cost):
                     itemToBuy.Upgrade()
                     print(f"{itemToBuy.name} has been upgraded to level {itemToBuy.itemLevel}!")
@@ -89,7 +93,7 @@ class Shop:
         
         # List out items in inventory
         for index, item in enumerate(self.inventory):
-            cost = item.GetGoldCost()
+            cost = int(item.GetGoldCost() * self.discount)
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {priceTag} {item.GetDesc()}")
 
@@ -103,7 +107,7 @@ class Shop:
                 return
             if choiceIndex < len(self.inventory):
                 itemToBuy = self.inventory[choiceIndex]
-                cost = itemToBuy.GetGoldCost()
+                cost = int(itemToBuy.GetGoldCost() * self.discount)
                 if gc.playerCharacter.SpendGold(cost):
                     gc.playerCharacter.GiveItem(itemToBuy)
                     self.inventory.pop(choiceIndex)

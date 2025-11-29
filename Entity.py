@@ -8,6 +8,7 @@ import random
 from colorama import Fore, Back, Style
 import Actions
 from EnemyTags import Tags
+import Relics
 
 class AEntity(ABC):
     def __init__(self):
@@ -15,8 +16,12 @@ class AEntity(ABC):
         self.name = "Unnamed Entity"
         self.level = 1
         self.maxHealth = self.health
-        self.additionalDamage = 0
+        self.additionalRawDamage = 0
+        self.damageMultiplier = 1.0
         self.effects = []
+        self.evasion = 0.0
+        self.damageResistance = 0.0
+        self.shield = 0
 
     def OnSpawn(self):
         pass
@@ -71,11 +76,34 @@ class AEntity(ABC):
         e_EntityDeath.Trigger(self)
 
     def Damage(self, amount: int):
+        if (self.health <= 0):
+            return
+        if self.CheckEvasion():
+            return
+        amount -= int(amount * min(self.damageResistance, 0.9))
+
+        if self.shield > 0:
+            if amount <= self.shield:
+                self.shield -= amount
+                amount = 0
+            else:
+                amount -= self.shield
+                self.shield = 0
+
         self.health -= amount
         print(self.name + " took " + str(amount) + " damage!")
         if (self.health <= 0):
             self.Kill()
         pass
+
+    def CheckEvasion(self) -> bool:
+        if (self.evasion <= 0.0):
+            return False
+        roll = random.uniform(0.0, 1.0)
+        if (roll < self.evasion):
+            print(f"{self.name} evaded the attack!")
+            return True
+        return False
 
     def Heal(self, amount: int):
         if (self.health >= self.maxHealth):
@@ -125,11 +153,16 @@ class BasicEnemy(AEntity):
         return self
     
     def Kill(self):
+        import Relics
+        import Commands
         if self.exp == 0:
             return super().Kill()
         toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
-        gc.playerCharacter.level.GrantExperience(toDrop)
-        gc.playerCharacter.GiveGold(toDrop * 2)
+        gc.playerCharacter.level.GrantExperience(round(toDrop * gc.experienceMultiplier))
+        gc.playerCharacter.GiveGold(round(toDrop * 2 * gc.goldMultiplier))
+        if (gc.playerCharacter.HasRelic(Relics.SoulbinderCharm)):
+            if (random.randrange(0, 100) < 2):
+                gc.GiveRelicReward(Commands)
         return super().Kill()
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -219,6 +252,23 @@ class Player(AEntity):
         self.stamina = self.maxStamina
         self.level = LevelHandler.LevelHandler()
         self.gold = 0
+        self.relics: list[Relics.ARelic] = []
+        self.critialHitChance = 0.05 # 5% base crit chance
+
+    def GiveRelic(self, relic: Relics.ARelic | None):
+        if relic is None:
+            return
+
+        self.relics.append(relic)
+        print(Fore.LIGHTMAGENTA_EX + Style.BRIGHT + relic.name + Style.RESET_ALL + " acquired by " + self.name + Style.RESET_ALL)
+        relic.OnAcquire()
+
+    def RemoveRelic(self, relicType: type):
+        for relic in self.relics:
+            if type(relic) is relicType:
+                self.relics.remove(relic)
+                print(Fore.LIGHTMAGENTA_EX + Style.BRIGHT + relic.name + Style.RESET_ALL + " removed from " + self.name + Style.RESET_ALL)
+                return
 
     def GiveItem(self, item: ItemSystem.Item | None):
         if item is None:
@@ -226,6 +276,30 @@ class Player(AEntity):
 
         self.items.append(copy.copy(item))
         print(Fore.LIGHTYELLOW_EX + Style.BRIGHT + item.name + Style.RESET_ALL + " given to " + self.name + Style.RESET_ALL)
+
+    def HasRelic(self, relicType: type) -> bool:
+        for relic in self.relics:
+            if type(relic) is relicType:
+                return True
+        return False
+    
+    def GetRelicCount(self, relicType: type) -> int:
+        count = 0
+        for relic in self.relics:
+            if type(relic) is relicType:
+                count += 1
+        return count
+    
+    def Heal(self, amount: int):
+        if self.HasRelic(Relics.CelestialOrb):
+            amount = round(amount * 1.25)
+            print(f"{self.name}'s Life Spring Amulet increases healing to {amount}!")
+
+        if self.HasRelic(Relics.ShadowboundMark):
+            amount = round(amount * 0.5)
+            print(f"{self.name}'s Shadowbound Mark reduces healing to {amount}!")
+
+        return super().Heal(amount)
 
     def Damage(self, amount):
         if (gc.godmode):
@@ -245,8 +319,25 @@ class Player(AEntity):
         print(f"{self.name} spent {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}. Current gold: {Fore.YELLOW}{Style.BRIGHT}{self.gold}{Style.RESET_ALL}")
         return True
     
+    def Kill(self):
+        if self.HasRelic(Relics.PhoenixFeather):
+            print(f"{Fore.LIGHTMAGENTA_EX}{Style.BRIGHT}Phoenix Feather{Style.RESET_ALL}{Fore.LIGHTMAGENTA_EX} glows brightly, resurrecting {self.name}!{Style.RESET_ALL}")
+            self.SetHealth(round(self.maxHealth * 0.3))
+            self.RemoveRelic(Relics.PhoenixFeather)
+            return
+        return super().Kill()
+    
     def GetGold(self) -> int:
         return self.gold
     
     def CanAfford(self, amount: int) -> bool:
         return self.gold >= amount
+    
+    def DoTurn(self):
+        if self.HasRelic(Relics.CelestialOrb):
+            self.Heal(round(self.maxHealth * 0.10)) # heal 10% max health each turn
+
+        bloodOathCount = self.GetRelicCount(Relics.BloodOathPendant)
+        if bloodOathCount > 0:
+            self.Damage(10 * bloodOathCount)
+        return super().DoTurn()

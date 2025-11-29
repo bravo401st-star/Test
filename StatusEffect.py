@@ -3,11 +3,10 @@ from colorama import Fore, Style
 
 # Abstract effect class, derive effects from this
 class AEffect(ABC):
+    positive: bool = False
     def __init__(self, entity, stacks: int = 1):
         self.attachedEntity = entity
         self.stacks: int = stacks
-        self.positive: bool = False
-        pass
     
     # To be run when the effect is applied
     def OnEffectApply(self):
@@ -57,12 +56,30 @@ def Apply(entity, effectType: type, stacks: int = 1) -> bool:
     effect.OnEffectApply()
     return True
 
+def GetRandomEffect(positive: bool = False) -> type:
+    import random
+    import Relics
+    effectsList: list[type] = []
+    for effect in AEffect.__subclasses__():
+        if not effect.positive and positive:
+            continue
+        effectsList.append(effect)
+    
+    rand = random.randint(0, len(effectsList) - 1)
+    return effectsList[rand]
+
 ###############################################################################
 # Effect definitions
 
 class PoisonEffect(AEffect):
     def OnEffectTick(self):
+        import GameCore as gc
+        import Relics
         self.attachedEntity.Damage(self.stacks)
+
+        if (gc.playerCharacter.HasRelic(Relics.WyrmSpineCharm) and self.attachedEntity != gc.playerCharacter):
+            self.attachedEntity.Damage(self.stacks)
+
         return super().OnEffectTick()
     
     def OnEffectApply(self):
@@ -114,13 +131,25 @@ class BoggedEffect(AEffect):
         return super().AddStack(count)
     
 class BlessedEffect(AEffect):
-    def __init__(self, entity, stacks = 1):
-        super().__init__(entity, stacks)
-        self.positive = True
+    positive: bool = True
 
     def OnEffectApply(self):
-        print(f"{self.attachedEntity.name} has been protected by a blessing!")
+        print(f"{self.attachedEntity.name} has been blessed!")
         return super().OnEffectApply()
     
     def GetName(self):
         return f"{Fore.YELLOW}{Style.BRIGHT}Blessed{Style.RESET_ALL}"
+    
+class RegenerationEffect(AEffect):
+    positive: bool = True
+
+    def OnEffectTick(self):
+        self.attachedEntity.Heal(self.stacks)
+        return super().OnEffectTick()
+    
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} feels healed!")
+        return super().OnEffectApply()
+    
+    def GetName(self):
+        return f"{Fore.GREEN}{Style.BRIGHT}Regeneration{Style.RESET_ALL}"

@@ -72,8 +72,10 @@ def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy | None:
     return listOfTag[random.randrange(0, len(listOfTag))]
     
 def OnEntityDie(entity: Entity.AEntity | None):
+    import Relics
     global gameRunning
     global killCount
+    global playerCharacter
     if entity == None:
         return
     if type(entity) is Entity.Player:
@@ -82,6 +84,13 @@ def OnEntityDie(entity: Entity.AEntity | None):
         return
     
     if issubclass(type(entity), Entity.BasicEnemy):
+        if playerCharacter.HasRelic(Relics.SoulvesselJar):
+            Relics.soulvesselJarKillsNeeded -= 1
+            if Relics.soulvesselJarKillsNeeded <= 0:
+                Relics.soulvesselJarKillsNeeded = 20
+                print(f"{Fore.CYAN}Your {Style.BRIGHT}Soulvessel Jar{Style.RESET_ALL}{Fore.CYAN} has filled and grants you a their energy!{Style.RESET_ALL}")
+                playerCharacter.maxStamina += 1
+
         print(entity.name + " has died!")
         RemoveEnemyFromScene(entity)
         killCount += 1
@@ -127,27 +136,52 @@ def CheckEncounterStatus():
     global playerCharacter
     if (len(enemiesInScene) > 0):
         return True
-    
-    rewardItem = Items.GetRandomItem(weighted=True)
-    if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True, True)):
-        playerCharacter.GiveItem(rewardItem)
+    GenerateReward(Commands)
 
     EndPlayerTurn()
     ChooseNextEvent()
 
+def GenerateReward(Commands):
+    import Relics
+    global additionalLootChance
+
+    itemsToGive = 1
+    itemsToGive += int(additionalLootChance % 1)
+    percentLeft = additionalLootChance - (itemsToGive - 1)
+    if (additionalLootChance >= 1.0):
+        print(f"{Fore.YELLOW}Your {Style.BRIGHT}Fortune's Emblem{Style.RESET_ALL}{Fore.YELLOW} glows brightly, increasing your loot!{Style.RESET_ALL}")
+
+    # check if player has the relic that gives extra loot
+    global playerCharacter
+    if playerCharacter.HasRelic(Relics.FortunesEmblem) and random.randrange(0, 100) < percentLeft:
+        if (additionalLootChance < 1.0):
+            print(f"{Fore.YELLOW}Your {Style.BRIGHT}Fortune's Emblem{Style.RESET_ALL}{Fore.YELLOW} glows brightly, increasing your loot!{Style.RESET_ALL}")
+        itemsToGive += 1
+    
+    rolls = 2 if playerCharacter.HasRelic(Relics.FortunesEmblem) else 1
+    for i in range(0, itemsToGive):
+        rewardItem = Items.GetRandomItem(True, rolls)
+        if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True, True)):
+            playerCharacter.GiveItem(rewardItem)
+
+    # give relic reward chance
+    if playerCharacter.level.level >= 5 and random.randrange(0, 100) < 5:
+        GiveRelicReward(Commands)
+
+def GiveRelicReward(Commands):
+    import Relics
+    relicReward = Relics.GetRandomRelic()
+    if (Commands.PromptYesNoQuestion(f"As a reward for your victory, you find a {Style.BRIGHT}{Fore.CYAN}{relicReward.name}{Style.RESET_ALL}. Do you want to keep it?", True, True)):
+        playerCharacter.GiveRelic(relicReward)
+
 def ChooseNextEvent():
-    import Commands
+    import GameEvent as ge
     eventRoll = random.randrange(0, 100)
     if (eventRoll < 50):
-        print(f"{Fore.GREEN}You find a peaceful clearing. You take a moment to rest.{Style.RESET_ALL}")
-        playerCharacter.health += int(playerCharacter.maxHealth * 0.2)
-        if (playerCharacter.health > playerCharacter.maxHealth):
-            playerCharacter.health = playerCharacter.maxHealth
-        print(f"You recover some health! Current health: {Style.BRIGHT}{Fore.RED}{playerCharacter.health}/{playerCharacter.maxHealth}{Style.RESET_ALL}")
-    elif (eventRoll < 80):
-        print("You stumble upon a wandering merchant!")
-        Commands.c_shop()
-    
+        event = ge.GetRandomEvent()
+        if (event != None):
+            event.TriggerEvent()
+
     # Next encounter
     print("You venture deeper into the wilderness...")
     for i in range(0, random.randrange(1, 4 + playerCharacter.level.level // 2)):
@@ -156,23 +190,52 @@ def ChooseNextEvent():
         if enemy is not None: 
             SpawnEnemy(enemy)
 
+    OnCombatStart()
+
+def OnCombatStart():
+    import Relics
+    import StatusEffect
+    global isFirstTurn
+    global playerCharacter
+
+    isFirstTurn = True
+
+    if playerCharacter.HasRelic(Relics.TimewornHourglass):
+        playerCharacter.shield += 15
+        print(f"{Fore.CYAN}Your {Style.BRIGHT}Timeworn Hourglass{Style.RESET_ALL}{Fore.CYAN} grants you a shield that absorbs 15 damage!{Style.RESET_ALL}")
+
+    if playerCharacter.HasRelic(Relics.XenolithFragment):
+        buff = StatusEffect.GetRandomEffect(positive=True)
+        StatusEffect.Apply(playerCharacter, buff, 1)
+
+    if playerCharacter.HasRelic(Relics.Dreamcatcher):
+        playerCharacter.stamina += 2
+        print(f"{Fore.CYAN}Your {Style.BRIGHT}Dreamcatcher{Style.RESET_ALL}{Fore.CYAN} grants you +2 stamina for the first turn!{Style.RESET_ALL}")
+
 
 def EndPlayerTurn():
     global playerCharacter
+    global playerHasAttackedThisTurn
+    global playerHasAttackedLastTurn
+    global isFirstTurn
+
+    isFirstTurn = False
     ProcessEnemyTurn()
     print("\n\nNew turn!")
     playerCharacter.stamina = playerCharacter.maxStamina
     playerCharacter.DoTurn()
+    playerHasAttackedLastTurn = playerHasAttackedThisTurn
+    playerHasAttackedThisTurn = False
     pass
 
 
 def ProcessEnemyTurn():
     global enemiesInScene
-    import copy, time, os
-    if os.name == 'nt':
-        os.system('cls')
-    else:
-        os.system('clear')
+    global playerCharacter
+    import copy, time
+    import Relics
+    import Commands
+    Commands.c_clear()
     tmpList = copy.copy(enemiesInScene)
 
     # Don't bother if there are no enemies
@@ -181,6 +244,11 @@ def ProcessEnemyTurn():
     
     print("Processing enemy turn!\n")
     for enemy in tmpList:
+        if playerCharacter.HasRelic(Relics.MindshackleTalisman):
+            if random.randrange(0, 100) < 20:
+                print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.RESET_ALL}{Fore.MAGENTA} is unable to act this turn!{Style.RESET_ALL}")
+                time.sleep(0.2)
+                continue
         enemy.DoTurn()
         time.sleep(0.2)
 
@@ -191,3 +259,9 @@ gameRunning = True
 showPlayerInfo = True
 godmode = False
 killCount = 0
+playerHasAttackedThisTurn = False
+playerHasAttackedLastTurn = False
+goldMultiplier = 1.0
+additionalLootChance = 0.0
+isFirstTurn = True
+experienceMultiplier = 1.0
