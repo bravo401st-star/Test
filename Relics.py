@@ -207,6 +207,15 @@ class GiantsRib(ARelic):
         gc.playerCharacter.maxHealth += 60
         gc.playerCharacter.health += 60
 
+class FangoftheRaven(ARelic):
+    def __init__(self):
+        self.name = "Fang of the Raven"
+        self.description = f"+20% crit chance. On a crit, apply 8 Bleed."
+
+    def OnAcquire(self):
+        import GameCore as gc
+        gc.playerCharacter.critialHitChance += 0.20
+
 """
 class KeystoneIdol(ARelic):
     def __init__(self):

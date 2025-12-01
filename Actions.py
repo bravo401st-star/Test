@@ -49,7 +49,7 @@ class AttackAction(AAction):
         return super().PerformAction()
     
     def GetShortDesc(self):
-        return super().GetShortDesc() + f" for {self.damage + self.parentEntity.additionalRawDamage} damage!"
+        return super().GetShortDesc() + f" for {(self.damage + self.parentEntity.additionalRawDamage) * (1 - gc.playerCharacter.damageResistance)} damage!" # I am well aware this has issues
     
     def SetEffectsOnHit(self, *effects):
         for effect in effects:

@@ -17,6 +17,7 @@ from colorama import Fore, Style
 REPEAT_COMMAND = '!'
 
 def main():
+    Commands.c_clear()
     setup()
     GameLoop()
 

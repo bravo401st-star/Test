@@ -8,7 +8,7 @@ import Relics
 
 class Shop:
     def __init__(self, inventorySize: int = 5):
-        self.inventory: list[ItemSystem.Item] = []
+        self.inventory: list[ItemSystem.AItem] = []
         hasRelic = gc.playerCharacter.HasRelic(Relics.GildedCompass)
         inventorySize += 1 if hasRelic else 0
         self.GenerateInventory(inventorySize)
@@ -18,7 +18,7 @@ class Shop:
     def GenerateInventory(self, numItems: int):
         self.inventory.clear()
         for _ in range(numItems):
-            item = Items.GetRandomItem(weighted=True, rolls=1, filter=[ItemSystem.Item])
+            item = Items.GetRandomItem(weighted=True, rolls=1, filter=[ItemSystem.AItem])
             self.inventory.append(item)
         pass
 
@@ -32,7 +32,8 @@ class Shop:
             print("1. Buy Items")
             print("2. Sell Items")
             print("3. Upgrade Items")
-            print("4. Exit Shop")
+            print("4. Quick Sell Junk")
+            print("5. Exit Shop")
             choice = input("Enter your choice: ")
 
             Commands.c_clear()
@@ -46,11 +47,26 @@ class Shop:
                 self.UpgradeItems()
                 return
             elif choice == "4":
-                print("Thank you for visiting my shop!")
+                self.QuickSellJunk()
                 return
+            elif choice == "5":
+                if Commands.PromptYesNoQuestion("Are you sure you want to leave?", False):
+                    print("Thank you for visiting my shop!")
+                    return
             else:
                 print("Invalid choice. Please try again.")
 
+    def QuickSellJunk(self):
+        junkItems: list[ItemSystem.JunkItem] = []
+        for item in gc.playerCharacter.items:
+            if type(item) is ItemSystem.JunkItem:
+                junkItems.append(item)
+
+        for junkItem in junkItems:
+            self.SellItem(junkItem)
+
+        self.OpenShop()
+        
     def UpgradeItems(self):
         self.PrintMoney()
         print("Choose an item to upgrade!")
@@ -130,20 +146,26 @@ class Shop:
             sellPriceTag = f"[{Fore.YELLOW}{Style.BRIGHT}+{sellPrice} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {sellPriceTag} {item.GetDesc()}")
 
+        choices = input("\nEnter the item(s) you wish to sell, or '0' to cancel: ").strip().split()
+        toSell: list[ItemSystem.AItem] = []
+        toSellHumanReadable = []
+        for choice in choices:
+            if choice.isdigit():
+                choiceIndex = int(choice) - 1
+                if choiceIndex < len(gc.playerCharacter.items):
+                    toSell.append(gc.playerCharacter.items[choiceIndex])
+                    toSellHumanReadable.append(gc.playerCharacter.items[choiceIndex].name)
 
-        choice = input("\nEnter the item you wish to sell, or '0' to cancel: ")
-        if choice.isdigit():
-            choiceIndex = int(choice) - 1
-            if choiceIndex == -1:
-                print("Sale cancelled.")
-                self.OpenShop()
-                return
-            if choiceIndex < len(gc.playerCharacter.items):
-                itemToSell = gc.playerCharacter.items[choiceIndex]
-                sellPrice = itemToSell.GetGoldCost() // 2
-                gc.playerCharacter.GiveGold(sellPrice)
-                gc.playerCharacter.items.pop(choiceIndex)
-            else:
-                print("Invalid item selection.")
+        if Commands.PromptYesNoQuestion(f"Are you sure you want to sell: {toSellHumanReadable}?", False):
+            for item in toSell:
+                self.SellItem(item)
 
         self.OpenShop()
+
+    def SellItem(self, item):
+        try:
+            gc.playerCharacter.items.remove(item)
+        except Exception as e:
+            print(e)
+        else:
+            gc.playerCharacter.GiveGold(item.GetGoldCost() // 2)

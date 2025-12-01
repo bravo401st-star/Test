@@ -72,10 +72,10 @@ def GetRandomEnemyByTag(searchTag: str) -> Entity.BasicEnemy | None:
     return listOfTag[random.randrange(0, len(listOfTag))]
     
 def OnEntityDie(entity: Entity.AEntity | None):
-    import Relics
     global gameRunning
     global killCount
     global playerCharacter
+    global enemiesInScene
     if entity == None:
         return
     if type(entity) is Entity.Player:
@@ -83,26 +83,25 @@ def OnEntityDie(entity: Entity.AEntity | None):
         gameRunning = False
         return
     
+    for enemy in enemiesInScene:
+        if issubclass(type(enemy), Entity.NecromancerEnemy):
+            enemy.TryToRaiseDead(entity)
+            break
+    
     if issubclass(type(entity), Entity.BasicEnemy):
-        if playerCharacter.HasRelic(Relics.SoulvesselJar):
-            Relics.soulvesselJarKillsNeeded -= 1
-            if Relics.soulvesselJarKillsNeeded <= 0:
-                Relics.soulvesselJarKillsNeeded = 20
-                print(f"{Fore.CYAN}Your {Style.BRIGHT}Soulvessel Jar{Style.RESET_ALL}{Fore.CYAN} has filled and grants you a their energy!{Style.RESET_ALL}")
-                playerCharacter.maxStamina += 1
-
         print(entity.name + " has died!")
         RemoveEnemyFromScene(entity)
         killCount += 1
-        return
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
-def RemoveEnemyFromScene(enemy):
+def RemoveEnemyFromScene(enemy: Entity.AEntity, checkEncounterStatus: bool = True):
     global enemiesInScene
     if enemy in enemiesInScene:
             enemiesInScene.remove(enemy)
-            CheckEncounterStatus()
+            enemy.Cleanup()
+            if (checkEncounterStatus):
+                CheckEncounterStatus()
             return True
     return False
 
@@ -130,14 +129,20 @@ def GetAllEnemiesOfType(entityType: type) -> list | None:
 
     return enemiesOfType
 
-def CheckEncounterStatus():
+def CheckEncounterStatus(allowReward: bool = True):
     import Commands
     global enemiesInScene
     global playerCharacter
+    global waitingLevelUpRewards
     if (len(enemiesInScene) > 0):
         return True
-    GenerateReward(Commands)
+    if allowReward:
+        GenerateReward(Commands)
 
+    #for levelup in range(waitingLevelUpRewards):
+    #    GiveLevelUpReward()
+
+    waitingLevelUpRewards = 0
     EndPlayerTurn()
     ChooseNextEvent()
 
@@ -161,7 +166,7 @@ def GenerateReward(Commands):
     rolls = 2 if playerCharacter.HasRelic(Relics.FortunesEmblem) else 1
     for i in range(0, itemsToGive):
         rewardItem = Items.GetRandomItem(True, rolls)
-        if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True, True)):
+        if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True)):
             playerCharacter.GiveItem(rewardItem)
 
     # give relic reward chance
@@ -171,7 +176,7 @@ def GenerateReward(Commands):
 def GiveRelicReward(Commands):
     import Relics
     relicReward = Relics.GetRandomRelic()
-    if (Commands.PromptYesNoQuestion(f"As a reward for your victory, you find a {Style.BRIGHT}{Fore.CYAN}{relicReward.name}{Style.RESET_ALL}. Do you want to keep it?", True, True)):
+    if (Commands.PromptYesNoQuestion(f"As a reward for your victory, you find a {Style.BRIGHT}{Fore.CYAN}{relicReward.name}{Style.RESET_ALL}. Do you want to keep it?", True)):
         playerCharacter.GiveRelic(relicReward)
 
 def ChooseNextEvent():
@@ -184,8 +189,8 @@ def ChooseNextEvent():
 
     # Next encounter
     print("You venture deeper into the wilderness...")
-    for i in range(0, random.randrange(1, 4 + playerCharacter.level.level // 2)):
-        level = max(1, playerCharacter.level.level + random.randrange(-1, 2))
+    for i in range(0, random.randrange(1, 2 + playerCharacter.level.level // 4)):
+        level = max(1, playerCharacter.level.level + random.randrange(-3, 5))
         enemy = Enemies.CreateRandomEnemy(1, level)
         if enemy is not None: 
             SpawnEnemy(enemy)
@@ -221,13 +226,12 @@ def EndPlayerTurn():
 
     isFirstTurn = False
     ProcessEnemyTurn()
-    print("\n\nNew turn!")
+    print("\nNew turn!")
     playerCharacter.stamina = playerCharacter.maxStamina
     playerCharacter.DoTurn()
     playerHasAttackedLastTurn = playerHasAttackedThisTurn
     playerHasAttackedThisTurn = False
     pass
-
 
 def ProcessEnemyTurn():
     global enemiesInScene
@@ -252,8 +256,38 @@ def ProcessEnemyTurn():
         enemy.DoTurn()
         time.sleep(0.2)
 
+def OnLevelUp():
+    global waitingLevelUpRewards
+    waitingLevelUpRewards += 1
+    pass
 
-playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(100).SetHealth(100)
+def GiveLevelUpReward():
+    import time
+    options = ["Increase Max HP +20", "Boost Damage +5", "Gain +1 Max Energy"]
+    header = "LEVEL UP!"
+    opt_lines = [f"{i}. {o}" for i, o in enumerate(options, 1)]
+
+    # determine inner width so header and options share the same box space
+    inner_width = max(len(header), max(len(line) for line in opt_lines))
+    padding = 4                     # total horizontal padding inside the box
+    total_width = inner_width + padding
+
+    border = "+" + "-" * total_width + "+"
+    print(border)
+    print("|" + header.center(total_width) + "|")
+    print(border)
+
+    for line in opt_lines:
+        # one leading space then left-justify the rest so contents align
+        print("| " + line.ljust(total_width - 1) + "|")
+
+    print(border)
+    time.sleep(100)
+
+
+
+playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(max=100, setHealthToo=True)
+playerCharacter.level.e_OnLevelUp.Subscribe(OnLevelUp)
 enemiesInScene = []
 gameRunning = True
 showPlayerInfo = True
@@ -265,3 +299,4 @@ goldMultiplier = 1.0
 additionalLootChance = 0.0
 isFirstTurn = True
 experienceMultiplier = 1.0
+waitingLevelUpRewards = 0

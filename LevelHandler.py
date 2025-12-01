@@ -1,11 +1,13 @@
 import math
+import EventSystem
 
 class LevelHandler():
     def __init__(self):
         self.heldExperience = 0
         self.level = 1
         self.neededExperience = getNeededExp(self.level)
-        pass
+        self.e_OnLevelUp = EventSystem.Event()
+
 
     def GrantExperience(self, amount: int):
         if type(amount) != int:
@@ -27,6 +29,7 @@ class LevelHandler():
     def LevelUp(self):
         self.level += 1
         self.neededExperience = getNeededExp(self.level)
+        self.e_OnLevelUp.Trigger()
         
     
     def __str__(self):

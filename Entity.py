@@ -7,7 +7,7 @@ import LevelHandler
 import random
 from colorama import Fore, Back, Style
 import Actions
-from EnemyTags import Tags
+from EnemyTags import ElementTag
 import Relics
 
 class AEntity(ABC):
@@ -52,6 +52,9 @@ class AEntity(ABC):
             if type(effect) is effectType:
                 return True
         return False
+    
+    def Cleanup(self):
+        pass
 
     def SetName(self, name: str):
         self.name = name
@@ -141,7 +144,7 @@ class BasicEnemy(AEntity):
             self.actionSet.Setup(self)
 
         # scale health by level
-        self.SetMaxHealth(round(self.maxHealth * (1 + 0.06 * (self.level - 1))), True)
+        self.SetMaxHealth(round(self.maxHealth * (1 + 0.03 * (self.level - 1))), True)
         return super().OnSpawn()
 
     def SetDropExp(self, xp: range | int):
@@ -160,9 +163,18 @@ class BasicEnemy(AEntity):
         toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
         gc.playerCharacter.level.GrantExperience(round(toDrop * gc.experienceMultiplier))
         gc.playerCharacter.GiveGold(round(toDrop * 2 * gc.goldMultiplier))
+
         if (gc.playerCharacter.HasRelic(Relics.SoulbinderCharm)):
             if (random.randrange(0, 100) < 2):
                 gc.GiveRelicReward(Commands)
+
+        if gc.playerCharacter.HasRelic(Relics.SoulvesselJar):
+            Relics.soulvesselJarKillsNeeded -= 1
+            if Relics.soulvesselJarKillsNeeded <= 0:
+                Relics.soulvesselJarKillsNeeded = 20
+                print(f"{Fore.CYAN}Your {Style.BRIGHT}Soulvessel Jar{Style.RESET_ALL}{Fore.CYAN} has filled and grants you a their energy!{Style.RESET_ALL}")
+                gc.playerCharacter.maxStamina += 1
+
         return super().Kill()
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -193,16 +205,6 @@ class BasicEnemy(AEntity):
 class NecromancerEnemy(BasicEnemy):
     def __init__(self):
         super().__init__()
-
-    def OnSpawn(self):
-        global e_EntityDeath
-        e_EntityDeath.Subscribe(self.TryToRaiseDead)
-        return super().OnSpawn()
-
-    def Kill(self):
-        global e_EntityDeath
-        e_EntityDeath.Unsubscribe(self.TryToRaiseDead)
-        return super().Kill()
     
     def TryToRaiseDead(self, entity: BasicEnemy):
         import Enemies
@@ -210,7 +212,7 @@ class NecromancerEnemy(BasicEnemy):
             return
         if (not issubclass(type(entity), BasicEnemy)):
             return
-        if (entity.HasTag(Tags.UNDEAD, Tags.CANT_BE_UNDEAD)):
+        if (entity.HasTag(ElementTag.UNDEAD, ElementTag.CANT_BE_UNDEAD)):
             return
         undead = Enemies.CreateEnemyByName(entity.name)
         if (undead == None):
@@ -218,7 +220,7 @@ class NecromancerEnemy(BasicEnemy):
         undead.SetName(f"Undead {undead.name}")
         undead.SetMaxHealth(int(undead.maxHealth / 2))
         undead.SetHealth(undead.maxHealth)
-        undead.AddTags(Tags.UNDEAD)
+        undead.AddTags(ElementTag.UNDEAD)
 
         print(f"{self.name} is raising an {undead.name}!!")
         gc.SpawnEnemy(undead)
@@ -270,7 +272,7 @@ class Player(AEntity):
                 print(Fore.LIGHTMAGENTA_EX + Style.BRIGHT + relic.name + Style.RESET_ALL + " removed from " + self.name + Style.RESET_ALL)
                 return
 
-    def GiveItem(self, item: ItemSystem.Item | None):
+    def GiveItem(self, item: ItemSystem.AItem | None):
         if item is None:
             return
 
@@ -280,6 +282,19 @@ class Player(AEntity):
     def HasRelic(self, relicType: type) -> bool:
         for relic in self.relics:
             if type(relic) is relicType:
+                return True
+        return False
+    
+    def HasItem(self, itemName: str) -> bool:
+        for item in self.items:
+            if item.name == itemName:
+                return True
+        return False
+    
+    def RemoveItem(self, itemName: str) -> bool:
+        for i, item in enumerate(self.items):
+            if item.name == itemName:
+                self.items.pop(i)
                 return True
         return False
     

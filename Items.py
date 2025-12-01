@@ -1,7 +1,7 @@
 import ItemSystem
 import random
 
-def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: list[type] | None = None) -> ItemSystem.Item:
+def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: list[type] | None = None) -> ItemSystem.AItem:
     items = GetListWithBlacklist(filter) if filter is not None else ItemSystem.itemsList
 
     if weighted:
@@ -25,9 +25,8 @@ def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: list[type] | N
             
     rand = random.randint(0, len(items) - 1)
     return items[rand]
- 
 
-def GetItemByName(name: str) -> ItemSystem.Item | None:
+def GetItemByName(name: str) -> ItemSystem.AItem | None:
     for item in ItemSystem.itemsList:
         if item.name == name:
             return item
@@ -49,7 +48,7 @@ def GetItemsByTag(tag: str):
 
     return items
 
-def GetListWithBlacklist(filter: list[type]) -> list[ItemSystem.Item]:
+def GetListWithBlacklist(filter: list[type]) -> list[ItemSystem.AItem]:
     items = []
     for item in ItemSystem.itemsList:
         for f in filter:
@@ -58,7 +57,7 @@ def GetListWithBlacklist(filter: list[type]) -> list[ItemSystem.Item]:
                 break
     return items
 
-def GetListWithWhitelist(filter: list[type]) -> list[ItemSystem.Item]:
+def GetListWithWhitelist(filter: list[type]) -> list[ItemSystem.AItem]:
     items = []
     for item in ItemSystem.itemsList:
         for f in filter:

@@ -103,7 +103,7 @@ command_map = {
     "god-mode": Command("c_godmode", "Toggle godmode", True),
     "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
     "delete-enemy": Command("c_deleteenemy", "Deletes enemy without \"killing\" them", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
-    "trigger-shop": Command("c_shop", "Opens the shop (for testing)", True),
+    "trigger-event": Command("c_event", "Triggers an event", True),
     "give-gold": Command("c_givegold", "Give gold", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, False)),
     "give-relic": Command("c_giverelic", "Give relic", True).SetParams(CommandParam.Parameter("relicIndex", CommandParam.IntArgument, True)),
     "relic-list": Command("c_reliclist", "Shows all relics in game by index", True),
@@ -145,7 +145,7 @@ def c_givegold(arguments: list):
 def c_killenemy(arguments: list):
     if len(arguments) > 0:
         if (arguments[0].GetRaw() == "-a"):
-            for ent in gc.enemiesInScene:
+            for ent in reversed(gc.enemiesInScene):
                 ent.Kill()
             return
         entity = gc.GetEntityByIndex(arguments[0].Get() - 1)
@@ -166,11 +166,11 @@ def c_deleteenemy(arguments: list):
     if len(arguments) > 0:
         if (arguments[0].GetRaw() == "-a"):
             for ent in reversed(gc.enemiesInScene):
-                gc.RemoveEnemyFromScene(ent)
+                gc.RemoveEnemyFromScene(ent, False)
             return
         entity = gc.GetEntityByIndex(arguments[0].Get() - 1)
         if entity != None:
-            gc.RemoveEnemyFromScene(entity)
+            gc.RemoveEnemyFromScene(entity, False)
         return
     
     PrintOutEntityList()
@@ -180,7 +180,7 @@ def c_deleteenemy(arguments: list):
     
     entity = gc.GetEntityByIndex(int(selection) - 1)
     if entity != None:
-            gc.RemoveEnemyFromScene(entity)
+            gc.RemoveEnemyFromScene(entity, False)
 
 def c_godmode():
     gc.godmode = not gc.godmode
@@ -315,10 +315,28 @@ def PrintOutEntityList():
         print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
 
-def c_shop():
-    from ShopSystem import Shop
-    shop = Shop()
-    shop.OpenShop()
+def c_event():
+    import GameEvent as ge
+
+    # List out all events in the game
+    for i, event in enumerate(ge.__event_list__, 1):
+        print(f"{i}. {event.name}")
+
+    while True:
+        choice = input("Choose event to trigger: ")
+        if (choice.isdigit()):
+            digit = int(choice) - 1
+            if digit < 0 or digit >= len(ge.__event_list__):
+                print("Invalid input.")
+                continue
+
+            event = ge.GetGameEventByIndex(digit)
+            if (event != None):
+                event.TriggerEvent()
+                return
+
+        c_clear()
+        print("Invalid input.")
 
 def c_help(args: list):
     global command_map
@@ -353,7 +371,7 @@ def c_help(args: list):
 
 
 def c_quit():
-    if PromptYesNoQuestion("Are you sure?", False, True):
+    if PromptYesNoQuestion("Are you sure?", False):
         gc.gameRunning = False
         print("Quitting game...")
 
@@ -394,7 +412,7 @@ def PrintOutInventory():
     print("Inventory:\n")
     print(f"[{Fore.YELLOW}{Style.BRIGHT}{gc.playerCharacter.GetGold()} Gold{Style.RESET_ALL}]")
     for item in gc.playerCharacter.items:
-        useableFlag = issubclass(type(item), ItemSystem.UseableItem)
+        useableFlag = issubclass(type(item), ItemSystem.TargetUseableItem)
         text = ""
         if useableFlag:
             text += Back.RED if gc.playerCharacter.stamina < item.useCost else ""
@@ -426,7 +444,7 @@ def c_use(parameters):
     if len(parameters) > 1:
         targetIndex = parameters[1].Get() - 1
     else:
-        c_use_item_param_only(itemIndex + 1)
+        c_use_item_param_only(itemIndex)
         return
 
     if itemIndex >= len(gc.playerCharacter.items):
@@ -436,11 +454,11 @@ def c_use(parameters):
     UseItemOn(itemIndex, targetIndex)
     pass
 
-def UseItemOn(itemIndex, targetIndex):
-    if (itemIndex >= len(gc.playerCharacter.items)):
+def UseItemOn(itemIndex, targetIndex: int | None):
+    if (itemIndex >= len(gc.playerCharacter.items) or (targetIndex is not None and (targetIndex < 0 or targetIndex > len(gc.enemiesInScene)))):
         return
-    item: ItemSystem.UseableItem = gc.playerCharacter.items[itemIndex]
-    target: Entity.AEntity | None = gc.GetEntityByIndex(targetIndex)
+    item = gc.playerCharacter.items[itemIndex]
+    target: Entity.AEntity | None = gc.GetEntityByIndex(targetIndex) if targetIndex is not None else None
 
     # check if item is a weapon and if target is player ask to confirm
     if (issubclass(type(item), ItemSystem.Weapon) and target == gc.playerCharacter):
@@ -451,10 +469,16 @@ def UseItemOn(itemIndex, targetIndex):
         print("Nothing happened! \"" + item.name + "\" is not a useable item!")
         return
 
-    if (item == None or target == None):
+    if (item is None):
         return
     
-    item.Use(target)
+    isTargetItem = issubclass(type(item), ItemSystem.TargetUseableItem)
+
+    if (targetIndex is not None and isTargetItem):
+        item.Use(target)
+        return
+    
+    item.Use()
 
 def c_use_no_params():
     PrintOutInventory()
@@ -463,9 +487,15 @@ def c_use_no_params():
     if (not index.isnumeric() or index == ''):
         return
 
-    c_use_item_param_only(int(index))
+    c_use_item_param_only(int(index) - 1)
 
 def c_use_item_param_only(itemIndex: int):
+    if (itemIndex >= len(gc.playerCharacter.items)):
+        return
+    item: ItemSystem.TargetUseableItem = gc.playerCharacter.items[itemIndex]
+    if (not issubclass(type(item), ItemSystem.TargetUseableItem)):
+        UseItemOn(itemIndex, None)
+        return
     PrintOutEntityList()
     target = input("Select target to use on (leave blank to default player): ")
     if target.strip() == '':
@@ -474,11 +504,12 @@ def c_use_item_param_only(itemIndex: int):
     if (not target.isnumeric() or target == ''):
         return
 
-    UseItemOn(itemIndex - 1, int(target) - 1)
+    UseItemOn(itemIndex, int(target) - 1)
 
 def PromptYesNoQuestion(promptText: str = "Are you sure?", defaultResponse: bool = False, requireImplicitResponse: bool = False) -> bool:
     response = defaultResponse
-    command = input(f"{promptText} ({'Y/n' if defaultResponse else 'y/N'}): ")
+    optionText = 'y/n' if requireImplicitResponse else ('Y/n' if defaultResponse else 'y/N')
+    command = input(f"{promptText} ({optionText}): ")
     commandLeftBlank = command.strip() == ""
 
     # If we input nothing and we don't require an implicit response then go default
