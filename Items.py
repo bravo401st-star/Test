@@ -1,8 +1,8 @@
 import ItemSystem
 import random
 
-def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: list[type] | None = None) -> ItemSystem.AItem:
-    items = GetListWithBlacklist(filter) if filter is not None else ItemSystem.itemsList
+def GetRandomItem(weighted: bool = False, rolls: int = 1, blackList: list[type] | None = None) -> ItemSystem.AItem:
+    items = GetListWithBlacklist(blackList) if blackList is not None else ItemSystem.itemsList
 
     if weighted:
         totalWeight = 0

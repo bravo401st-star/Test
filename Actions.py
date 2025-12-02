@@ -49,7 +49,7 @@ class AttackAction(AAction):
         return super().PerformAction()
     
     def GetShortDesc(self):
-        return super().GetShortDesc() + f" for {(self.damage + self.parentEntity.additionalRawDamage) * (1 - gc.playerCharacter.damageResistance)} damage!" # I am well aware this has issues
+        return super().GetShortDesc() + f" for {round((self.damage + self.parentEntity.additionalRawDamage) * (1 - gc.playerCharacter.damageResistance))} damage!" # I am well aware this has issues
     
     def SetEffectsOnHit(self, *effects):
         for effect in effects:
@@ -108,7 +108,7 @@ class BuffAlliesAction(AAction):
             return super().PerformAction()
 
         for ally in allies:
-            ally.additionalDamage += self.amount
+            ally.additionalRawDamage += self.amount
             print(f"{ally.name} feels a stronger bond with their allies!")
 
         return super().PerformAction()

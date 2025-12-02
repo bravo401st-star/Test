@@ -106,10 +106,11 @@ class StrangeCathedral(AGameEvent):
                 choiceIndex = int(choice)
                 if choiceIndex == 1:
                     Commands.c_clear()
-                    print(f"You approach the rusted door, {f'{Fore.YELLOW}a similar rust to a key you\'ve obtained before.{Style.RESET_ALL}' if hasKey else 'you study it\'s design.'}")
+                    print(f"You approach the rusted door, {f'{Fore.YELLOW}a similar rust to a key you obtained before.{Style.RESET_ALL}' if hasKey else 'you study the design.'}")
                     time.sleep(2)
                     while (True):
-                        print(f"What do you do?\n1. Leave\n2. Attempt to pick lock with your picklock ({Fore.RED}50%{Style.RESET_ALL}){f'\n3. Unlock with {Fore.MAGENTA}\"Rusted Cathedral Key\"{Style.RESET_ALL}' if hasKey else ''}")
+                        text2 = f"\n3. Unlock with {Fore.MAGENTA}\"Rusted Cathedral Key\"{Style.RESET_ALL}"
+                        print(f"What do you do?\n1. Leave\n2. Attempt to pick lock with your picklock ({Fore.RED}50%{Style.RESET_ALL}){text2 if hasKey else ''}")
                         choice = input("Choose your option: ")
                         if choice.isdigit():
                             choiceNum = int(choice)

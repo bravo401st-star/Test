@@ -18,7 +18,7 @@ class Shop:
     def GenerateInventory(self, numItems: int):
         self.inventory.clear()
         for _ in range(numItems):
-            item = Items.GetRandomItem(weighted=True, rolls=1, filter=[ItemSystem.AItem])
+            item = Items.GetRandomItem(weighted=True, rolls=1, blackList=[ItemSystem.JunkItem])
             self.inventory.append(item)
         pass
 
