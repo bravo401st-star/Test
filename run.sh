@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python ./RPG.py
+python3 ./RPG.py
