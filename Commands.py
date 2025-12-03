@@ -166,11 +166,11 @@ def c_deleteenemy(arguments: list):
     if len(arguments) > 0:
         if (arguments[0].GetRaw() == "-a"):
             for ent in reversed(gc.enemiesInScene):
-                gc.RemoveEnemyFromScene(ent, False)
+                gc.RemoveEnemyFromScene(ent)
             return
         entity = gc.GetEntityByIndex(arguments[0].Get() - 1)
         if entity != None:
-            gc.RemoveEnemyFromScene(entity, False)
+            gc.RemoveEnemyFromScene(entity)
         return
     
     PrintOutEntityList()
@@ -180,7 +180,7 @@ def c_deleteenemy(arguments: list):
     
     entity = gc.GetEntityByIndex(int(selection) - 1)
     if entity != None:
-            gc.RemoveEnemyFromScene(entity, False)
+            gc.RemoveEnemyFromScene(entity)
 
 def c_godmode():
     gc.godmode = not gc.godmode

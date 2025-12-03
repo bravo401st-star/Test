@@ -20,66 +20,77 @@ class ARelic(ABC):
         pass
     
 class FortunesEmblem(ARelic):
+    LOOT_MULT = 0.4
     def __init__(self):
         super().__init__()
         self.name = "Fortune's Emblem"
-        self.description = f"+40% increased loot drop rate. Item drops are rolled twice, highest rarity taken."
+        self.description = f"+{int(FortunesEmblem.LOOT_MULT * 100)}% increased loot drop rate. Item drops are rolled twice, highest rarity taken."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.additionalLootChance += 0.4
+        gc.additionalLootChance += FortunesEmblem.LOOT_MULT
 
 class GildedCompass(ARelic):
+    SHOP_DISCOUNT = 0.2
+    GOLD_MULT = 0.5
     def __init__(self):
         super().__init__()
         self.name = "Gilded Compass"
-        self.description = f"+50% gold gained. Shops offer 20% discount and an additional item."
+        self.description = f"+{int(GildedCompass.GOLD_MULT * 100)}% gold gained. Shops offer {int(GildedCompass.SHOP_DISCOUNT * 100)}% discount and an additional item."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.goldMultiplier += 0.5
+        gc.goldMultiplier += GildedCompass.GOLD_MULT
 
 class OraclesWhisper(ARelic):
+    CRIT_CHANCE = 0.15
     def __init__(self):
         super().__init__()
         self.name = "Oracle's Whisper"
-        self.description = f"+15% crit chance. First hit in every combat is guaranteed to crit."
+        self.description = f"+{int(OraclesWhisper.CRIT_CHANCE * 100)}% crit chance. First hit in every combat is guaranteed to crit."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.critialHitChance += 0.15
+        gc.playerCharacter.critialHitChance += OraclesWhisper.CRIT_CHANCE
 
 class StonehoofTotem(ARelic):
+    DAMAGE_RESIST = 0.30
+    DAMAGE_MULT_WHEN_NOT_ATTACK = 0.50
     def __init__(self):
         super().__init__()
         self.name = "Stonehoof Totem"
-        self.description = f"+30% less damage from all sources. Not attacking for a turn grants +50% damage on the next one."
+        self.description = f"+{int(StonehoofTotem.DAMAGE_RESIST * 100)}% less damage from all sources. Not attacking for a turn grants +{int(StonehoofTotem.DAMAGE_MULT_WHEN_NOT_ATTACK * 100)}% damage on the next one."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.damageResistance += 0.30
+        gc.playerCharacter.damageResistance += StonehoofTotem.DAMAGE_RESIST
 
 class PhoenixFeather(ARelic):
+    REVIVE_HEALTH_PERCENT = 0.30
     def __init__(self):
         super().__init__()
         self.name = "Phoenix Feather"
-        self.description = f"Upon death, revive with 30% health once."
+        self.description = f"Upon death, revive with {int(PhoenixFeather.REVIVE_HEALTH_PERCENT * 100)}% health once."
 
 class PhantomSigil(ARelic):
+    ADDITIONAL_EVASION = 0.20
+    DAMAGE_REFLECT: int = 15
     def __init__(self):
         super().__init__()
         self.name = "Phantom Sigil"
-        self.description = f"+20% evasion chance. After dodging, instantly deal 15 damage back." # TODO: implement damage retaliation on dodge
+        self.description = f"+{int(PhantomSigil.ADDITIONAL_EVASION * 100)}% evasion chance. After dodging, instantly deal {PhantomSigil.DAMAGE_REFLECT} damage back." # TODO: implement damage retaliation on dodge
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.evasion += 0.20
+        gc.playerCharacter.evasion += PhantomSigil.ADDITIONAL_EVASION
 
 class CelestialOrb(ARelic):
+    HEALING_MULT = 0.25
+    HEAL_START_COMBAT_PERCENT = 0.10
     def __init__(self):
         super().__init__()
         self.name = "Celestial Orb"
-        self.description = f"All healing effects are 25% stronger. At the start of combat, heal 10% max health."
+        self.description = f"All healing effects are {int(CelestialOrb.HEALING_MULT * 100)}% stronger. At the start of combat, heal {int(CelestialOrb.HEAL_START_COMBAT_PERCENT * 100)}% max health."
 
 class WyrmSpineCharm(ARelic):
     def __init__(self):
@@ -88,10 +99,11 @@ class WyrmSpineCharm(ARelic):
         self.description = f"Your poison ticks an extra time every turn."
 
 class EternalFlask(ARelic):
+    EXTRA_USES: int = 1
     def __init__(self):
         super().__init__()
         self.name = "Eternal Flask"
-        self.description = f"All potions gain +1 extra use."
+        self.description = f"All potions gain +{EternalFlask.EXTRA_USES} extra use."
 
     def OnAcquire(self):
         import GameCore as gc
@@ -99,75 +111,86 @@ class EternalFlask(ARelic):
 
         for item in ItemSystem.itemsList:
             if issubclass(type(item), ItemSystem.Potion):
-                item.useCount += 1
+                item.useCount += EternalFlask.EXTRA_USES
         
         for item in gc.playerCharacter.items:
             if issubclass(type(item), ItemSystem.Potion):
-                item.useCount += 1
+                item.useCount += EternalFlask.EXTRA_USES
 
 class BloodOathPendant(ARelic):
+    DAMAGE_MULT = 0.25
+    HEALTH_LOST_PER_TURN = 10
     def __init__(self):
         super().__init__()
         self.name = "Blood Oath Pendant"
-        self.description = f"+25% damage. -10 HP at the start of every turn."
+        self.description = f"+{int(BloodOathPendant.DAMAGE_MULT * 100)}% damage. -{BloodOathPendant.HEALTH_LOST_PER_TURN} HP at the start of every turn."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.damageMultiplier += 0.25
+        gc.playerCharacter.damageMultiplier += BloodOathPendant.DAMAGE_MULT
 
 class ShadowboundMark(ARelic):
+    EXTRA_EVASION = 0.35
+    HEALING_REDUCTION_PERCENT = 0.50
     def __init__(self):
         super().__init__()
         self.name = "Shadowbound Mark"
-        self.description = f"+35% evasion. Healing received is reduced by 50%."
+        self.description = f"+{int(ShadowboundMark.EXTRA_EVASION * 100)}% evasion. Healing received is reduced by {int(ShadowboundMark.HEALING_REDUCTION_PERCENT * 100)}%."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.evasion += 0.35
+        gc.playerCharacter.evasion += ShadowboundMark.EXTRA_EVASION
 
 class GlassforgeCrown(ARelic):
+    EXTRA_CRIT_CHANCE = 0.40
+    DAMAGE_RESISTANCE_REDUCTION = 0.20
     def __init__(self):
         super().__init__()
         self.name = "Glassforge Crown"
-        self.description = f"+40% crit chance. -20% more damage from all sources."
+        self.description = f"+{int(GlassforgeCrown.EXTRA_CRIT_CHANCE * 100)}% crit chance. -{int(GlassforgeCrown.DAMAGE_RESISTANCE_REDUCTION * 100)}% more damage from all sources."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.critialHitChance += 0.40
-        gc.playerCharacter.damageResistance -= 0.20
+        gc.playerCharacter.critialHitChance += GlassforgeCrown.EXTRA_CRIT_CHANCE
+        gc.playerCharacter.damageResistance -= GlassforgeCrown.DAMAGE_RESISTANCE_REDUCTION
 
 class TimewornHourglass(ARelic):
+    SHIELD_AMOUNT = 15
     def __init__(self):
         super().__init__()
         self.name = "Timeworn Hourglass"
-        self.description = f"At the start of combat, gain a shield that absorbs 15 damage."
+        self.description = f"At the start of combat, gain a shield that absorbs {TimewornHourglass.SHIELD_AMOUNT} damage."
 
 class MindshackleTalisman(ARelic):
+    SKIP_TURN_CHANCE = 0.20
     def __init__(self):
         super().__init__()
         self.name = "Mindshackle Talisman"
-        self.description = f"Enemies have a 20% chance to skip their turn."
+        self.description = f"Enemies have a {int(MindshackleTalisman.SKIP_TURN_CHANCE * 100)}% chance to skip their turn."
 
 class KnowledgeScroll(ARelic):
+    EXTRA_EXPERIENCE_PERCENT = 0.20
     def __init__(self):
         super().__init__()
         self.name = "Knowledge Scroll"
-        self.description = f"+20% experience gained from combat."
+        self.description = f"+{int(KnowledgeScroll.EXTRA_EXPERIENCE_PERCENT * 100)}% experience gained from combat."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.experienceMultiplier += 0.20
+        gc.experienceMultiplier += KnowledgeScroll.EXTRA_EXPERIENCE_PERCENT
 
 class CursedLocket(ARelic):
+    EXPERIENCE_REDUCTION_PERCENT = 0.15
+    EXTRA_GOLD_PERCENT = 0.15
     def __init__(self):
         super().__init__()
         self.name = "Cursed Locket"
-        self.description = f"-15% experience gained from combat. +10% gold gained from combat."
+        self.description = f"-{int(CursedLocket.EXPERIENCE_REDUCTION_PERCENT * 100)}% experience gained from combat. +{int(CursedLocket.EXTRA_GOLD_PERCENT * 100)}% gold gained from combat."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.experienceMultiplier -= 0.15
-        gc.goldMultiplier += 0.10
+        gc.experienceMultiplier -= CursedLocket.EXPERIENCE_REDUCTION_PERCENT
+        gc.goldMultiplier += CursedLocket.EXTRA_GOLD_PERCENT
 
 class XenolithFragment(ARelic):
     def __init__(self):
@@ -176,16 +199,18 @@ class XenolithFragment(ARelic):
         self.description = f"At the start of combat, gain a random buff effect."
 
 class SoulbinderCharm(ARelic):
+    RELIC_DROP_CHANCE = 0.02
     def __init__(self):
         super().__init__()
         self.name = "Soulbinder Charm"
-        self.description = f"Defeated enemies have a 2% chance to drop a random relic."
+        self.description = f"Defeated enemies have a {int(SoulbinderCharm.RELIC_DROP_CHANCE * 100)}% chance to drop a random relic."
 
 class Dreamcatcher(ARelic):
+    EXTRA_STAMINA = 2
     def __init__(self):
         super().__init__()
         self.name = "Dreamcatcher"
-        self.description = f"At the start of combat, gain +2 stamina for the first turn."
+        self.description = f"At the start of combat, gain +{Dreamcatcher.EXTRA_STAMINA} stamina for the first turn."
 
 class SoulvesselJar(ARelic):
     killsToFill = 20
@@ -196,25 +221,29 @@ class SoulvesselJar(ARelic):
 soulvesselJarKillsNeeded = SoulvesselJar.killsToFill
 
 class GiantsRib(ARelic):
+    EXTRA_DAMAGE_RESIST_PERCENT = 0.10
+    EXTRA_MAX_HP: int = 60
     def __init__(self):
         super().__init__()
         self.name = "Giant's Rib"
-        self.description = f"+10% less damage from all sources. +60 Max Health."
+        self.description = f"+{int(GiantsRib.EXTRA_DAMAGE_RESIST_PERCENT * 100)}% less damage from all sources. +{GiantsRib.EXTRA_MAX_HP} Max Health."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.damageResistance += 0.10
-        gc.playerCharacter.maxHealth += 60
-        gc.playerCharacter.health += 60
+        gc.playerCharacter.damageResistance += GiantsRib.EXTRA_DAMAGE_RESIST_PERCENT
+        gc.playerCharacter.maxHealth += GiantsRib.EXTRA_MAX_HP
+        gc.playerCharacter.health += GiantsRib.EXTRA_MAX_HP
 
 class FangoftheRaven(ARelic):
+    EXTRA_CRIT_CHANCE_PERCENT = 0.20
+    BLEED_AMOUNT: int = 8
     def __init__(self):
         self.name = "Fang of the Raven"
-        self.description = f"+20% crit chance. On a crit, apply 8 Bleed."
+        self.description = f"+{int(FangoftheRaven.EXTRA_CRIT_CHANCE_PERCENT * 100)}% crit chance. On a crit, apply {FangoftheRaven.BLEED_AMOUNT} Bleed."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.critialHitChance += 0.20
+        gc.playerCharacter.critialHitChance += FangoftheRaven.EXTRA_CRIT_CHANCE_PERCENT
 
 """
 class KeystoneIdol(ARelic):

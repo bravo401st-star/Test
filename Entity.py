@@ -165,7 +165,7 @@ class BasicEnemy(AEntity):
         gc.playerCharacter.GiveGold(round(toDrop * 2 * gc.goldMultiplier))
 
         if (gc.playerCharacter.HasRelic(Relics.SoulbinderCharm)):
-            if (random.randrange(0, 100) < 2):
+            if (random.randrange(0, 100) < int(Relics.SoulbinderCharm.RELIC_DROP_CHANCE * 100)):
                 gc.GiveRelicReward(Commands)
 
         if gc.playerCharacter.HasRelic(Relics.SoulvesselJar):
@@ -182,6 +182,8 @@ class BasicEnemy(AEntity):
         return self
 
     def DoTurn(self):
+        if (self.health <= 0):
+            return
         if self.actionSet != None:
             self.actionSet.PerformNextAction()
         return super().DoTurn()
@@ -291,6 +293,14 @@ class Player(AEntity):
                 return True
         return False
     
+    def GetItemCount(self, itemName: str) -> int:
+        count = 0
+        for item in self.items:
+            if item.name == itemName:
+                count += 1
+        
+        return count
+    
     def RemoveItem(self, itemName: str) -> bool:
         for i, item in enumerate(self.items):
             if item.name == itemName:
@@ -307,11 +317,11 @@ class Player(AEntity):
     
     def Heal(self, amount: int):
         if self.HasRelic(Relics.CelestialOrb):
-            amount = round(amount * 1.25)
+            amount = round(amount * (1 + Relics.CelestialOrb.HEALING_MULT))
             print(f"{self.name}'s Life Spring Amulet increases healing to {amount}!")
 
         if self.HasRelic(Relics.ShadowboundMark):
-            amount = round(amount * 0.5)
+            amount = round(amount * Relics.ShadowboundMark.HEALING_REDUCTION_PERCENT)
             print(f"{self.name}'s Shadowbound Mark reduces healing to {amount}!")
 
         return super().Heal(amount)
@@ -337,7 +347,7 @@ class Player(AEntity):
     def Kill(self):
         if self.HasRelic(Relics.PhoenixFeather):
             print(f"{Fore.LIGHTMAGENTA_EX}{Style.BRIGHT}Phoenix Feather{Style.RESET_ALL}{Fore.LIGHTMAGENTA_EX} glows brightly, resurrecting {self.name}!{Style.RESET_ALL}")
-            self.SetHealth(round(self.maxHealth * 0.3))
+            self.SetHealth(round(self.maxHealth * Relics.PhoenixFeather.REVIVE_HEALTH_PERCENT))
             self.RemoveRelic(Relics.PhoenixFeather)
             return
         return super().Kill()
@@ -350,9 +360,9 @@ class Player(AEntity):
     
     def DoTurn(self):
         if self.HasRelic(Relics.CelestialOrb):
-            self.Heal(round(self.maxHealth * 0.10)) # heal 10% max health each turn
+            self.Heal(round(self.maxHealth * Relics.CelestialOrb.HEAL_START_COMBAT_PERCENT)) # heal 10% max health each turn
 
         bloodOathCount = self.GetRelicCount(Relics.BloodOathPendant)
         if bloodOathCount > 0:
-            self.Damage(10 * bloodOathCount)
+            self.Damage(Relics.BloodOathPendant.HEALTH_LOST_PER_TURN * bloodOathCount)
         return super().DoTurn()

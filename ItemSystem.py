@@ -146,7 +146,7 @@ class Weapon(TargetUseableItem, LevelableItem):
         super().__init__()
         LevelableItem.__init__(self)
         self.baseDamage = 1
-        self.critChance = 0
+        self.critChance = 0.0
         self.critDamageMult = 2.0
 
     def GetDesc(self):
@@ -157,19 +157,19 @@ class Weapon(TargetUseableItem, LevelableItem):
         # get critial hit chance
         import random
         from colorama import Fore, Style
+        super().OnUse(target)
         totalCritChance = gc.playerCharacter.critialHitChance + self.critChance
         isCrit = random.random() < totalCritChance
-        if gc.playerHasAttackedThisTurn == False and gc.playerCharacter.HasRelic(Relics.OraclesWhisper):
+        if gc.playerHasAttackedThisTurn == False and gc.playerCharacter.HasRelic(Relics.OraclesWhisper) and gc.isFirstTurn:
             isCrit = True
+        gc.playerHasAttackedThisTurn = True
         if isCrit:
             print(Fore.RED + Style.BRIGHT + "Critical Hit!" + Style.RESET_ALL)
-            target.Damage(self.GetDamage() * self.critDamageMult)
+            target.Damage(round(self.GetDamage() * self.critDamageMult))
             if (gc.playerCharacter.HasRelic(Relics.FangoftheRaven)):
-                StatusEffect.Apply(target, StatusEffect.BleedEffect, 8)
+                StatusEffect.Apply(target, StatusEffect.BleedEffect, Relics.FangoftheRaven.BLEED_AMOUNT)
         else:
             target.Damage(self.GetDamage())
-        gc.playerHasAttackedThisTurn = True
-        super().OnUse(target)
 
     def SetDamage(self, damage: int):
         self.baseDamage = damage
@@ -178,7 +178,7 @@ class Weapon(TargetUseableItem, LevelableItem):
     def GetDamage(self) -> int:
         damage = self.baseDamage + self.CalculateAdditionalLevelDamage()
         if (not gc.playerHasAttackedLastTurn) and gc.playerCharacter.HasRelic(Relics.StonehoofTotem):
-            damage = round(damage * 1.5)
+            damage = round(damage * (1 + Relics.StonehoofTotem.DAMAGE_MULT_WHEN_NOT_ATTACK))
         damage = round(damage * gc.playerCharacter.damageMultiplier)
         damage += gc.playerCharacter.additionalRawDamage
         return damage
@@ -339,7 +339,7 @@ class SmokeBomb(UseableItem):
     def OnUse(self):
         # clear enemies from scene
         for enemy in reversed(gc.enemiesInScene):
-            gc.RemoveEnemyFromScene(enemy, False)
+            gc.RemoveEnemyFromScene(enemy)
         gc.CheckEncounterStatus(False)
 
         return super().OnUse()

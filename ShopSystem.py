@@ -12,7 +12,7 @@ class Shop:
         hasRelic = gc.playerCharacter.HasRelic(Relics.GildedCompass)
         inventorySize += 1 if hasRelic else 0
         self.GenerateInventory(inventorySize)
-        self.discount = 0.8 if hasRelic else 1.0
+        self.discount = (1 - Relics.GildedCompass.SHOP_DISCOUNT) if hasRelic else 1.0
         pass
 
     def GenerateInventory(self, numItems: int):

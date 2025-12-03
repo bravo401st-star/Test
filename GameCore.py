@@ -83,25 +83,24 @@ def OnEntityDie(entity: Entity.AEntity | None):
         gameRunning = False
         return
     
-    for enemy in enemiesInScene:
-        if issubclass(type(enemy), Entity.NecromancerEnemy):
-            enemy.TryToRaiseDead(entity)
-            break
-    
     if issubclass(type(entity), Entity.BasicEnemy):
         print(entity.name + " has died!")
         RemoveEnemyFromScene(entity)
         killCount += 1
+
+        for enemy in enemiesInScene:
+            if issubclass(type(enemy), Entity.NecromancerEnemy):
+                enemy.TryToRaiseDead(entity)
+                break
+    CheckEncounterStatus()
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
-def RemoveEnemyFromScene(enemy: Entity.AEntity, checkEncounterStatus: bool = True):
+def RemoveEnemyFromScene(enemy: Entity.AEntity):
     global enemiesInScene
     if enemy in enemiesInScene:
             enemiesInScene.remove(enemy)
             enemy.Cleanup()
-            if (checkEncounterStatus):
-                CheckEncounterStatus()
             return True
     return False
 
@@ -202,20 +201,22 @@ def OnCombatStart():
     import StatusEffect
     global isFirstTurn
     global playerCharacter
+    global playerHasAttackedThisTurn
 
     isFirstTurn = True
+    playerHasAttackedThisTurn = False
 
     if playerCharacter.HasRelic(Relics.TimewornHourglass):
-        playerCharacter.shield += 15
-        print(f"{Fore.CYAN}Your {Style.BRIGHT}Timeworn Hourglass{Style.RESET_ALL}{Fore.CYAN} grants you a shield that absorbs 15 damage!{Style.RESET_ALL}")
+        playerCharacter.shield += Relics.TimewornHourglass.SHIELD_AMOUNT
+        print(f"{Fore.CYAN}Your {Style.BRIGHT}Timeworn Hourglass{Style.NORMAL} grants you a shield that absorbs {Relics.TimewornHourglass.SHIELD_AMOUNT} damage!{Style.RESET_ALL}")
 
     if playerCharacter.HasRelic(Relics.XenolithFragment):
         buff = StatusEffect.GetRandomEffect(positive=True)
-        StatusEffect.Apply(playerCharacter, buff, 1)
+        StatusEffect.Apply(playerCharacter, buff, random.randint(1, 5))
 
     if playerCharacter.HasRelic(Relics.Dreamcatcher):
         playerCharacter.stamina += 2
-        print(f"{Fore.CYAN}Your {Style.BRIGHT}Dreamcatcher{Style.RESET_ALL}{Fore.CYAN} grants you +2 stamina for the first turn!{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Your {Style.BRIGHT}Dreamcatcher{Style.NORMAL} grants you +{Relics.Dreamcatcher.EXTRA_STAMINA} stamina for the first turn!{Style.RESET_ALL}")
 
 
 def EndPlayerTurn():
@@ -249,8 +250,8 @@ def ProcessEnemyTurn():
     print("Processing enemy turn!\n")
     for enemy in tmpList:
         if playerCharacter.HasRelic(Relics.MindshackleTalisman):
-            if random.randrange(0, 100) < 20:
-                print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.RESET_ALL}{Fore.MAGENTA} is unable to act this turn!{Style.RESET_ALL}")
+            if random.randrange(0, 100) < int(Relics.MindshackleTalisman.SKIP_TURN_CHANCE * 100):
+                print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.NORMAL}{Fore.MAGENTA} is unable to act this turn!{Style.RESET_ALL}")
                 time.sleep(0.2)
                 continue
         enemy.DoTurn()

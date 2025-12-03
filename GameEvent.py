@@ -110,7 +110,7 @@ class StrangeCathedral(AGameEvent):
                     time.sleep(2)
                     while (True):
                         text2 = f"\n3. Unlock with {Fore.MAGENTA}\"Rusted Cathedral Key\"{Style.RESET_ALL}"
-                        print(f"What do you do?\n1. Leave\n2. Attempt to pick lock with your picklock ({Fore.RED}50%{Style.RESET_ALL}){text2 if hasKey else ''}")
+                        print(f"What do you do?\n1. Leave\n2. Attempt to pick lock with your picklock ({Fore.RED}50%{Style.RESET_ALL})(x{gc.playerCharacter.GetItemCount("Lockpick Set")}){text2 if hasKey else ''}")
                         choice = input("Choose your option: ")
                         if choice.isdigit():
                             choiceNum = int(choice)
