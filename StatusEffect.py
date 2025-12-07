@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 from colorama import Fore, Style
+from Entity import AEntity, Player
+from AttackInfo import AttInfo
 
 # Abstract effect class, derive effects from this
 class AEffect(ABC):
     positive: bool = False
     def __init__(self, entity, stacks: int = 1):
-        self.attachedEntity = entity
+        self.attachedEntity: AEntity = entity
         self.stacks: int = stacks
     
     # To be run when the effect is applied
@@ -75,10 +77,10 @@ class PoisonEffect(AEffect):
     def OnEffectTick(self):
         import GameCore as gc
         import Relics
-        self.attachedEntity.Damage(self.stacks)
+        self.attachedEntity.Damage(AttInfo(self.stacks, None, True))
 
         if (gc.playerCharacter.HasRelic(Relics.WyrmSpineCharm) and self.attachedEntity != gc.playerCharacter):
-            self.attachedEntity.Damage(self.stacks)
+            self.attachedEntity.Damage(AttInfo(self.stacks, None, True))
 
         return super().OnEffectTick()
     
@@ -96,7 +98,7 @@ class PoisonEffect(AEffect):
 class BleedEffect(AEffect):
     def OnEffectTick(self):
         import random
-        self.attachedEntity.Damage(random.randrange(1, 5))
+        self.attachedEntity.Damage(AttInfo(random.randrange(1, 5), None, True))
         return super().OnEffectTick()
     
     def OnEffectApply(self):
@@ -112,7 +114,8 @@ class BleedEffect(AEffect):
 
 class BoggedEffect(AEffect):
     def OnEffectTick(self):
-        self.attachedEntity.stamina -= 1
+        if type(self.attachedEntity is Player):
+            self.attachedEntity.stamina -= 1 # type: ignore
         return super().OnEffectTick()
     
     def OnEffectApply(self):
@@ -153,3 +156,137 @@ class RegenerationEffect(AEffect):
     
     def GetName(self):
         return f"{Fore.GREEN}{Style.BRIGHT}Regeneration{Style.RESET_ALL}"
+    
+class PhaseShifted(AEffect):
+    EVASION_OFFSET: float = 0.50
+    positive: bool = True
+
+    def OnEffectApply(self):
+        self.attachedEntity.evasion += PhaseShifted.EVASION_OFFSET
+        print(f"{self.attachedEntity.name} shifts from reality!")
+        return super().OnEffectApply()
+    
+    def OnEffectRemove(self):
+        self.attachedEntity.evasion -= PhaseShifted.EVASION_OFFSET
+        print(f"{self.attachedEntity.name} shifts back to reality!")
+        return super().OnEffectRemove()
+    
+    def GetName(self):
+        return f"{Fore.MAGENTA}{Style.BRIGHT}Phase Shifted{Style.RESET_ALL}"
+    
+class Resistance(AEffect):
+    DAMAGE_MULT: float = 0.50
+    positive: bool = True
+
+    def OnEffectApply(self):
+        self.attachedEntity.damageResistance += Resistance.DAMAGE_MULT
+        print(f"{self.attachedEntity.name} feels protected!")
+        return super().OnEffectApply()
+    
+    def OnEffectRemove(self):
+        self.attachedEntity.damageResistance -= Resistance.DAMAGE_MULT
+        return super().OnEffectRemove()
+    
+    def GetName(self):
+        return f"{Fore.WHITE}{Style.BRIGHT}Resistance{Style.RESET_ALL}"
+    
+class Vulnerablity(AEffect):
+    DAMAGE_MULT: float = 0.50
+    positive: bool = False
+
+    def OnEffectApply(self):
+        self.attachedEntity.damageResistance -= Vulnerablity.DAMAGE_MULT
+        print(f"{self.attachedEntity.name} feels vulnerable!")
+        return super().OnEffectApply()
+    
+    def OnEffectRemove(self):
+        self.attachedEntity.damageResistance += Vulnerablity.DAMAGE_MULT
+        return super().OnEffectRemove()
+    
+    def GetName(self):
+        return f"{Fore.WHITE}{Style.DIM}Vulnerablity{Style.RESET_ALL}"
+    
+class Weakness(AEffect):
+    DAMAGE_MULT: float = 0.50
+    positive: bool = False
+
+    def OnEffectApply(self):
+        self.attachedEntity.outgoingDamageMultiplier -= Weakness.DAMAGE_MULT
+        print(f"{self.attachedEntity.name} feels weakened!")
+        return super().OnEffectApply()
+    
+    def OnEffectRemove(self):
+        self.attachedEntity.outgoingDamageMultiplier += Weakness.DAMAGE_MULT
+        return super().OnEffectRemove()
+    
+    def GetName(self):
+        return f"{Fore.YELLOW}{Style.DIM}Weakness{Style.RESET_ALL}"
+
+class BerserkEffect(AEffect):
+    DAMAGE_MULT: float = 0.50
+    WEAKNESS_STACKS_ON_EXPIRE: int = 2
+
+    def OnEffectApply(self):
+        self.attachedEntity.outgoingDamageMultiplier += BerserkEffect.DAMAGE_MULT
+        print(f"{self.attachedEntity.name} becomes enraged, dealing more damage!")
+        return super().OnEffectApply()
+
+    def OnEffectRemove(self):
+        self.attachedEntity.outgoingDamageMultiplier -= BerserkEffect.DAMAGE_MULT
+        print(f"{self.attachedEntity.name} calms down and feels weaker...")
+        # apply weakness after berserk ends
+        Apply(self.attachedEntity, Weakness, BerserkEffect.WEAKNESS_STACKS_ON_EXPIRE)
+        return super().OnEffectRemove()
+
+    def GetName(self):
+        return f"{Fore.RED}{Style.BRIGHT}Berserk{Style.RESET_ALL}"
+
+class LifestealEffect(AEffect):
+    positive: bool = True
+
+    def OnEffectApply(self):
+        amount = 0.5
+        # use dynamic attribute to track lifesteal fraction
+        if not hasattr(self.attachedEntity, 'lifesteal_fraction'):
+            self.attachedEntity.lifesteal_fraction = 0.0
+        self.attachedEntity.lifesteal_fraction += amount
+        print(f"{self.attachedEntity.name} feels vampiric power flowing through them!")
+        return super().OnEffectApply()
+
+    def OnEffectRemove(self):
+        amount = 0.5
+        self.attachedEntity.lifesteal_fraction -= amount
+        if self.attachedEntity.lifesteal_fraction <= 0:
+            try:
+                delattr(self.attachedEntity, 'lifesteal_fraction')
+            except Exception:
+                pass
+        return super().OnEffectRemove()
+
+    def GetName(self):
+        return f"{Fore.MAGENTA}{Style.BRIGHT}Lifesteal{Style.RESET_ALL}"
+
+class FortitudeEffect(AEffect):
+    SHIELD_PER_STACK: int = 8
+    positive: bool = True
+
+    def OnEffectApply(self):
+        added = FortitudeEffect.SHIELD_PER_STACK * self.stacks
+        self.attachedEntity.shield += added
+        # store how much we added so we can remove exactly
+        self._added_shield = added
+        print(f"{self.attachedEntity.name} gains a protective fortitude ({added} shield)!")
+        return super().OnEffectApply()
+
+    def OnEffectRemove(self):
+        try:
+            self.attachedEntity.shield -= self._added_shield
+
+            if self.attachedEntity.shield < 0:
+                self.attachedEntity.shield = 0
+        except Exception:
+            pass
+        return super().OnEffectRemove()
+
+    def GetName(self):
+        return f"{Fore.CYAN}{Style.BRIGHT}Fortitude{Style.RESET_ALL}"

@@ -170,7 +170,7 @@ def c_deleteenemy(arguments: list):
             return
         entity = gc.GetEntityByIndex(arguments[0].Get() - 1)
         if entity != None:
-            gc.RemoveEnemyFromScene(entity)
+            gc.RemoveEnemyFromScene(entity) # type: ignore
         return
     
     PrintOutEntityList()
@@ -180,7 +180,7 @@ def c_deleteenemy(arguments: list):
     
     entity = gc.GetEntityByIndex(int(selection) - 1)
     if entity != None:
-            gc.RemoveEnemyFromScene(entity)
+            gc.RemoveEnemyFromScene(entity) # type: ignore
 
 def c_godmode():
     gc.godmode = not gc.godmode
@@ -275,13 +275,13 @@ def c_status():
     print("Level: " + str(gc.playerCharacter.level))
     print(f"Experience: {gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}")
     print("Gold: " + str(gc.playerCharacter.GetGold()))
-    print(f"Evasion: {gc.playerCharacter.evasion * 100}%")
+    print(f"Evasion: {gc.playerCharacter.GetEvasion() * 100}%")
     print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
-    print(f"Damage Multiplier: {round(gc.playerCharacter.damageMultiplier * 100, 2)}%")
+    print(f"Damage Multiplier: {round(gc.playerCharacter.outgoingDamageMultiplier * 100, 2)}%")
     print(f"Gold Multiplier: {round(gc.goldMultiplier * 100, 2)}%")
     print(f"Experience Multiplier: {round(gc.experienceMultiplier * 100, 2)}%")
     print(f"Loot Multiplier: {round((gc.additionalLootChance + 1) * 100, 2)}%")
-    print(f"Damage Resistance: {round(gc.playerCharacter.damageResistance * 100, 2)}%")
+    print(f"Damage Resistance: {round(gc.playerCharacter.GetDamageResist() * 100, 2)}%")
 
     effectsText = gc.playerCharacter.GetEffectListText()
     if effectsText != None:
@@ -298,21 +298,24 @@ def c_entities():
     PrintOutEntityList()
 
 def PrintOutEntityList():
+    from Entity import AEntity
     effectsText = gc.playerCharacter.GetEffectListText()
-    print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
+    print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}{gc.playerCharacter.GetShieldText()}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
     index = 2
     print("-"*40)
     for enemy in gc.enemiesInScene:
+        if enemy.actionSet is None:
+            continue
         action = enemy.actionSet.GetNextAction()
         actionText = "[Just chillin']"
         if action is not None:
-            actionText = f"!![{Style.BRIGHT}{Fore.RED}{enemy.actionSet.GetNextAction().GetShortDesc()}{Style.RESET_ALL}]!!"
+            actionText = f"!![{Style.BRIGHT}{Fore.RED}{action.GetShortDesc()}{Style.RESET_ALL}]!!"
 
         # Handle effects text
         effectsText = enemy.GetEffectListText()
 
 
-        print(f"{index}: {enemy.name} [HP: {enemy.health}] [LVL: {enemy.level}] {actionText}{(' ' + effectsText) if effectsText != None else ''}")
+        print(f"{index}: {enemy.name} [HP: {enemy.health}{enemy.GetShieldText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
 
 def c_event():

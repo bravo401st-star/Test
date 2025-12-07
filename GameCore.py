@@ -85,18 +85,18 @@ def OnEntityDie(entity: Entity.AEntity | None):
     
     if issubclass(type(entity), Entity.BasicEnemy):
         print(entity.name + " has died!")
-        RemoveEnemyFromScene(entity)
+        RemoveEnemyFromScene(entity) # type: ignore
         killCount += 1
 
         for enemy in enemiesInScene:
             if issubclass(type(enemy), Entity.NecromancerEnemy):
-                enemy.TryToRaiseDead(entity)
+                enemy.TryToRaiseDead(entity) # pyright: ignore[reportAttributeAccessIssue]
                 break
     CheckEncounterStatus()
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
-def RemoveEnemyFromScene(enemy: Entity.AEntity):
+def RemoveEnemyFromScene(enemy: Entity.BasicEnemy):
     global enemiesInScene
     if enemy in enemiesInScene:
             enemiesInScene.remove(enemy)
@@ -289,7 +289,7 @@ def GiveLevelUpReward():
 
 playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(max=100, setHealthToo=True)
 playerCharacter.level.e_OnLevelUp.Subscribe(OnLevelUp)
-enemiesInScene = []
+enemiesInScene: list[Entity.BasicEnemy] = []
 gameRunning = True
 showPlayerInfo = True
 godmode = False

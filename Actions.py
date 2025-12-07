@@ -10,9 +10,17 @@ class AAction(ABC):
         self.actionShortDesc = "Peforming action..."
         self.chance = 1.0
         self.parentEntity: Entity.BasicEnemy = Entity.BasicEnemy()
+        self.repeatAmount: int | range = 1
 
     def SetName(self, name: str):
         self.actionName = name
+        return self
+    
+    def SetRepeat(self, times: int | range):
+        if type(times) is range and times.start == 0:
+            times = range(1, times.stop, times.step)
+            
+        self.repeatAmount = times
         return self
     
     def SetShortDesc(self, shortDesc: str):
@@ -40,8 +48,9 @@ class AttackAction(AAction):
         super().__init__()
 
     def PerformAction(self):
+        from AttackInfo import AttInfo
         import StatusEffect
-        gc.playerCharacter.Damage(self.damage + self.parentEntity.additionalRawDamage)
+        gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity))
 
         for effect in self.effectsOnHit:
             StatusEffect.Apply(gc.playerCharacter, effect)
@@ -49,12 +58,15 @@ class AttackAction(AAction):
         return super().PerformAction()
     
     def GetShortDesc(self):
-        return super().GetShortDesc() + f" for {round((self.damage + self.parentEntity.additionalRawDamage) * (1 - gc.playerCharacter.damageResistance))} damage!" # I am well aware this has issues
+        return super().GetShortDesc() + f" for {round(self.CalculateDamage() * (1 - gc.playerCharacter.GetDamageResist()))} damage!" # I am well aware this has issues
     
     def SetEffectsOnHit(self, *effects):
         for effect in effects:
             self.effectsOnHit.append(effect)
         return self
+    
+    def CalculateDamage(self):
+        return round((self.damage + self.parentEntity.additionalRawDamage) * self.parentEntity.outgoingDamageMultiplier)
     
 class HealAction(AAction):
     def __init__(self, healing: int):
@@ -142,22 +154,116 @@ class TransformAction(AAction):
             return super().GetShortDesc() + enemy.name
         return super().GetShortDesc()
     
+class RemovePlayerBuffsAndAttackAction(AttackAction):
+    def PerformAction(self):
+        for eff in gc.playerCharacter.effects:
+            if eff.positive:
+                gc.playerCharacter.RemoveEffect(eff)
+                print(f"{self.parentEntity.name} removes your {eff.GetName()} buff!")
+        return super().PerformAction()
     
+class ApplyEffectToSelfAction(AAction):
+    def __init__(self, effect: type, stacks: int):
+        super().__init__()
+        self.effect = effect
+        self.stacks = stacks
+
+    def PerformAction(self):
+        import StatusEffect
+        StatusEffect.Apply(self.parentEntity, self.effect, self.stacks)
+        return super().PerformAction()
+    
+class EmberlingGrow(AAction):
+    def PerformAction(self):
+        from Entity import EmberlingEnemy
+        if type(self.parentEntity) is not EmberlingEnemy:
+            return super().PerformAction()
+        
+        self.parentEntity.size += 1
+        print(f"The {self.parentEntity.name} grows brighter!")
+
+        return super().PerformAction()
+    
+class EmberlingDetonate(AAction):
+    def PerformAction(self):
+        from Entity import EmberlingEnemy
+        if type(self.parentEntity) is not EmberlingEnemy:
+            return super().PerformAction()
+        
+        self.parentEntity.Detonate()
+
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        from Entity import EmberlingEnemy
+        if type(self.parentEntity) is not EmberlingEnemy:
+            return super().PerformAction()
+        
+        return super().GetShortDesc() + f" for {round(self.parentEntity.GetDetonateDamage() * (1 - gc.playerCharacter.GetDamageResist()))} damage!" # I am well aware this has issues
+    
+class ApplyEffectToPlayerAction(AAction):
+    def __init__(self, effect: type, stacks: int = 1):
+        super().__init__()
+        self.effect = effect
+        self.stacks = stacks
+
+    def PerformAction(self):
+        import StatusEffect
+        StatusEffect.Apply(gc.playerCharacter, self.effect, self.stacks)
+        print(f"{self.parentEntity.name} applies {self.effect.__name__} to the player!")
+        return super().PerformAction()
+    
+class SorrowFeedAction(AAction):
+    def __init__(self, damagePerDebuff: int = 1):
+        super().__init__()
+        self.damagePerDebuff = damagePerDebuff
+
+    def PerformAction(self):
+        debuffCount = 0
+        for effect in gc.playerCharacter.effects:
+            if not effect.positive:
+                debuffCount += effect.stacks
+        
+        damageIncrease = debuffCount * self.damagePerDebuff
+        self.parentEntity.additionalRawDamage += damageIncrease
+        
+        if damageIncrease > 0:
+            print(f"{self.parentEntity.name} feeds on the player's suffering, gaining {damageIncrease} additional damage!")
+        else:
+            print(f"{self.parentEntity.name} finds no sorrow to feed upon...")
+        
+        return super().PerformAction()
+    
+
 #############################################################################
 # Action set class
 class ActionSet():
     def __init__(self):
         self.actions: list[AAction] = []
         self.actionIndex = 0
+        self.currentActionPerformedCount = 0
+        self.toRepeat: int = 1
 
     def Setup(self, entity):
         for act in self.actions:
             act.parentEntity = entity
+        self.SetCurrentAction(self.actionIndex)
 
-    def GetNextAction(self) -> AAction | None:
+    def GetNextAction(self, index: int | None = None) -> AAction | None:
         if len(self.actions) <= 0:
             return None
-        return self.actions[self.actionIndex]
+        if type(index) is not int:
+            index = self.actionIndex
+        return self.actions[index]
+    
+    def SetCurrentAction(self, index: int):
+        self.actionIndex = index
+        self.currentActionPerformedCount = 0
+
+        # Figure out how many times to repeat this action
+        repeatRange: int | range = self.actions[self.actionIndex].repeatAmount
+        self.toRepeat = repeatRange if (type(repeatRange) is int) else (random.randrange(repeatRange.start, repeatRange.stop, repeatRange.step)) # type: ignore
+        pass
         
     def PerformNextAction(self):
         nextAction = self.GetNextAction()
@@ -165,14 +271,21 @@ class ActionSet():
             return
         
         nextAction.PerformAction()
+        self.currentActionPerformedCount += 1
 
+        # guard clause to repeat current action if we need to
+        if (self.toRepeat > self.currentActionPerformedCount):
+            return
+
+        # Cycle to find next availible action to take
+        index = self.actionIndex
         while True:
             limit = 100
-            self.actionIndex += 1
-            if (self.actionIndex >= len(self.actions)):
-                self.actionIndex = 0
+            index += 1
+            if (index >= len(self.actions)):
+                index = 0
 
-            nextAction = self.GetNextAction()
+            nextAction = self.GetNextAction(index)
             if nextAction is None:
                 break
 
@@ -182,6 +295,7 @@ class ActionSet():
             if (random.random() <= nextAction.chance and nextAction.CanDoAction()):
                 break
             limit -= 1
+        self.SetCurrentAction(index)
 
     def AppendAction(self, action: AAction):
         if issubclass(type(action), AAction) != True:

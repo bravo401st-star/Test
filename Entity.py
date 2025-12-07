@@ -7,24 +7,40 @@ import LevelHandler
 import random
 from colorama import Fore, Back, Style
 import Actions
-from EnemyTags import ElementTag
+from EnemyTags import EnemyTag
 import Relics
+from typing import Self
+from AttackInfo import AttInfo
 
 class AEntity(ABC):
     def __init__(self):
+        from StatusEffect import AEffect
         self.health = 100
         self.name = "Unnamed Entity"
         self.level = 1
         self.maxHealth = self.health
         self.additionalRawDamage = 0
-        self.damageMultiplier = 1.0
-        self.effects = []
+        self.outgoingDamageMultiplier = 1.0
+        self.effects: list[AEffect] = []
         self.evasion = 0.0
         self.damageResistance = 0.0
         self.shield = 0
+        self.lifesteal_fraction = 0.0
 
     def OnSpawn(self):
         pass
+
+    def GetAdditionalDesc(self) -> str:
+        return str()
+    
+    def GetEvasion(self) -> float:
+        return min(0.75, self.evasion)
+
+    def GetDamageResist(self) -> float:
+        return min(0.8, self.damageResistance)
+    
+    def GetShieldText(self) -> str:
+        return f' ({Style.BRIGHT}{Fore.BLUE}{self.shield}{Style.RESET_ALL})' if self.shield > 0 else ''
 
     def DoTurn(self):
         effectsToRemove = []
@@ -78,32 +94,38 @@ class AEntity(ABC):
         global e_EntityDeath
         e_EntityDeath.Trigger(self)
 
-    def Damage(self, amount: int):
+    def Damage(self, attackInfo: AttInfo) -> bool:
         if (self.health <= 0):
-            return
-        if self.CheckEvasion():
-            return
-        amount -= int(amount * min(self.damageResistance, 0.9))
-
+            return False
+        if not attackInfo.ignoresEvasion and self.CheckEvasion():
+            return False
+        attackInfo.damage -= int(attackInfo.damage * self.GetDamageResist())
+        print(self.name + " took " + str(attackInfo.damage) + " damage!")
         if self.shield > 0:
-            if amount <= self.shield:
-                self.shield -= amount
-                amount = 0
+            if attackInfo.damage <= self.shield:
+                self.shield -= attackInfo.damage
+                attackInfo.damage = 0
             else:
-                amount -= self.shield
+                attackInfo.damage -= self.shield
                 self.shield = 0
-
-        self.health -= amount
-        print(self.name + " took " + str(amount) + " damage!")
+        self.health -= attackInfo.damage
+        try:
+            attacker = attackInfo.attacker
+            if attacker is not None and attacker.lifesteal_fraction > 0:
+                heal_amount = round(attackInfo.damage * attacker.lifesteal_fraction)
+                if heal_amount > 0:
+                    attacker.Heal(heal_amount)
+        except Exception:
+            pass
         if (self.health <= 0):
             self.Kill()
-        pass
+        return True
 
     def CheckEvasion(self) -> bool:
-        if (self.evasion <= 0.0):
+        if (self.GetEvasion() <= 0.0):
             return False
         roll = random.uniform(0.0, 1.0)
-        if (roll < self.evasion):
+        if (roll < self.GetEvasion()):
             print(f"{self.name} evaded the attack!")
             return True
         return False
@@ -162,7 +184,7 @@ class BasicEnemy(AEntity):
             return super().Kill()
         toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
         gc.playerCharacter.level.GrantExperience(round(toDrop * gc.experienceMultiplier))
-        gc.playerCharacter.GiveGold(round(toDrop * 2 * gc.goldMultiplier))
+        gc.playerCharacter.GiveGold(round(toDrop * gc.goldMultiplier))
 
         if (gc.playerCharacter.HasRelic(Relics.SoulbinderCharm)):
             if (random.randrange(0, 100) < int(Relics.SoulbinderCharm.RELIC_DROP_CHANCE * 100)):
@@ -214,7 +236,7 @@ class NecromancerEnemy(BasicEnemy):
             return
         if (not issubclass(type(entity), BasicEnemy)):
             return
-        if (entity.HasTag(ElementTag.UNDEAD, ElementTag.CANT_BE_UNDEAD)):
+        if (entity.HasTag(EnemyTag.UNDEAD, EnemyTag.CANT_BE_UNDEAD)):
             return
         undead = Enemies.CreateEnemyByName(entity.name)
         if (undead == None):
@@ -222,7 +244,7 @@ class NecromancerEnemy(BasicEnemy):
         undead.SetName(f"Undead {undead.name}")
         undead.SetMaxHealth(int(undead.maxHealth / 2))
         undead.SetHealth(undead.maxHealth)
-        undead.AddTags(ElementTag.UNDEAD)
+        undead.AddTags(EnemyTag.UNDEAD)
 
         print(f"{self.name} is raising an {undead.name}!!")
         gc.SpawnEnemy(undead)
@@ -235,18 +257,75 @@ class TrollEnemy(BasicEnemy):
         self.Heal(5)
         return super().DoTurn()
     
+class WraithEnemy(BasicEnemy):
+    def Damage(self, attackInfo: AttInfo):
+        if super().Damage(attackInfo) and attackInfo.attacker is not None:
+            amountToReflect = round(attackInfo.damage * 0.5)
+            attackInfo.attacker.Damage(AttInfo(amountToReflect, self))
+            print(f"{Fore.RED}{self.name} reflected {amountToReflect} damage back at {attackInfo.attacker.name}!{Fore.RESET}")
+        return True
+    
 class TransformOnDeathEnemy(BasicEnemy):
-    def __init__(self, transformIndex: int, flavorText: str = ""):
+    def __init__(self, transformIndex: int, flavorText: str = "", amountToSpawn: int | range = 1):
         super().__init__()
         self.transformToIndex: int = transformIndex
         self.flavorText: str = flavorText
+        self.amountToSpawn: int = amountToSpawn if type(amountToSpawn) is int else random.randrange(amountToSpawn.start, amountToSpawn.stop, amountToSpawn.step) # type: ignore
 
     def Kill(self):
         import Enemies
         if (self.flavorText != ""):
             print(f"{self.name} {self.flavorText}")
-        gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.transformToIndex), True)
+
+        for i in range(self.amountToSpawn):
+            gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.transformToIndex, self.level), True)
         return super().Kill()
+    
+class EmberlingEnemy(BasicEnemy):
+    EMBERLING_DAMAGE_MULT: float = 3
+    def __init__(self):
+        super().__init__()
+        self.size = 1
+
+    def Detonate(self):
+        print(f"Emberling detonates itself!")
+        gc.playerCharacter.Damage(AttInfo(self.GetDetonateDamage(), self))
+        self.size = int(self.size * 0.5)
+
+    def GetDetonateDamage(self) -> int:
+        return round(self.size * EmberlingEnemy.EMBERLING_DAMAGE_MULT)
+
+    def Kill(self):
+        self.Detonate()
+        return super().Kill()
+
+    def GetAdditionalDesc(self) -> str:
+        return super().GetAdditionalDesc() + f" [SIZE: {Fore.RED}{self.size}{Fore.RESET}]"
+    
+class MossboundGuardianEnemy(BasicEnemy):
+    REGROW_AMOUNT = 10
+    GROWTH_PREVENTION_TURNS = 3
+    def __init__(self):
+        self.growthCooldown = 0
+        super().__init__()
+
+    def DoTurn(self):
+        super().DoTurn()
+        if (self.growthCooldown > 0):
+            self.growthCooldown -= 1
+            if self.growthCooldown <= 0:
+                print(f"The {self.name}'s moss starts to grow once more!")
+            return
+        self.shield += MossboundGuardianEnemy.REGROW_AMOUNT
+        print(f"{Fore.GREEN}The moss rapidly grows on the {self.name}.{Fore.RESET} (If only you could stop its growth...)")
+
+    def Damage(self, attackInfo: AttInfo) -> bool:
+        from ElementTags import ElementTag
+        if attackInfo.HasElement(ElementTag.FIRE):
+            print(f"{Fore.RED}Fire burns the {Style.BRIGHT}{self.name}{Style.NORMAL} and prevents it's growth!{Style.RESET_ALL}")
+            self.growthCooldown = MossboundGuardianEnemy.GROWTH_PREVENTION_TURNS
+        return super().Damage(attackInfo)
+
 
 class Player(AEntity):
     def __init__(self):
@@ -274,7 +353,7 @@ class Player(AEntity):
                 print(Fore.LIGHTMAGENTA_EX + Style.BRIGHT + relic.name + Style.RESET_ALL + " removed from " + self.name + Style.RESET_ALL)
                 return
 
-    def GiveItem(self, item: ItemSystem.AItem | None):
+    def GiveItem(self, item):
         if item is None:
             return
 
@@ -326,11 +405,11 @@ class Player(AEntity):
 
         return super().Heal(amount)
 
-    def Damage(self, amount):
+    def Damage(self, attackInfo: AttInfo):
         if (gc.godmode):
-            print(f"Godly power has blocked {amount} damage.")
+            print(f"Godly power has blocked {attackInfo.damage} damage.")
             return
-        return super().Damage(amount)
+        return super().Damage(attackInfo)
     
     def GiveGold(self, amount: int):
         self.gold += amount
@@ -364,5 +443,5 @@ class Player(AEntity):
 
         bloodOathCount = self.GetRelicCount(Relics.BloodOathPendant)
         if bloodOathCount > 0:
-            self.Damage(Relics.BloodOathPendant.HEALTH_LOST_PER_TURN * bloodOathCount)
+            self.Damage(AttInfo(Relics.BloodOathPendant.HEALTH_LOST_PER_TURN * bloodOathCount))
         return super().DoTurn()

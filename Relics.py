@@ -127,7 +127,7 @@ class BloodOathPendant(ARelic):
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.damageMultiplier += BloodOathPendant.DAMAGE_MULT
+        gc.playerCharacter.outgoingDamageMultiplier += BloodOathPendant.DAMAGE_MULT
 
 class ShadowboundMark(ARelic):
     EXTRA_EVASION = 0.35

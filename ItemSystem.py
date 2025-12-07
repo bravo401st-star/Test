@@ -3,6 +3,7 @@ from abc import ABC
 import StatusEffect
 import Relics
 from ElementTags import ElementTag
+from Entity import AEntity
 
 class AItem(ABC):
     tag = "ITEM"
@@ -114,7 +115,7 @@ class UseableItem(AItem):
 
 
 class TargetUseableItem(UseableItem):
-    def Use(self, target) -> bool:
+    def Use(self, target: AEntity) -> bool:
         if (self.useCount == 0):
             self.RemoveSelfFromInventory()
             return False
@@ -133,9 +134,10 @@ class TargetUseableItem(UseableItem):
         self.OnUse(target)
         return True
 
-    def OnUse(self, target):
+    def OnUse(self, target: AEntity):
         if (self.effectToApply != None):
-            StatusEffect.Apply(target, self.effectToApply)
+            import StatusEffect
+            StatusEffect.Apply(target, self.effectToApply, self.effectStacks)
         pass
 
 class Weapon(TargetUseableItem, LevelableItem):
@@ -148,13 +150,15 @@ class Weapon(TargetUseableItem, LevelableItem):
         self.baseDamage = 1
         self.critChance = 0.0
         self.critDamageMult = 2.0
+        self.elementType: ElementTag | None = None
 
     def GetDesc(self):
         from colorama import Fore, Style
-        return f"[{Fore.YELLOW}{Style.BRIGHT}{self.itemLevel}{Style.NORMAL}{Fore.RESET}] " + super().GetDesc() + f" - Damage: {self.GetDamage()}"
+        elementText = f"[{Fore.RESET}{Style.NORMAL}{self.elementType.value}{self.elementType.name}{Fore.RESET}{Style.NORMAL}] " if self.elementType is not None else ""
+        return f"[{Fore.YELLOW}{Style.BRIGHT}{self.itemLevel}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}"
 
-    def OnUse(self, target):
-        # get critial hit chance
+    def OnUse(self, target: AEntity):
+        from AttackInfo import AttInfo
         import random
         from colorama import Fore, Style
         super().OnUse(target)
@@ -163,13 +167,18 @@ class Weapon(TargetUseableItem, LevelableItem):
         if gc.playerHasAttackedThisTurn == False and gc.playerCharacter.HasRelic(Relics.OraclesWhisper) and gc.isFirstTurn:
             isCrit = True
         gc.playerHasAttackedThisTurn = True
+        attackInfo = AttInfo(self.GetDamage(), gc.playerCharacter)
+
+        if self.elementType is not None:
+            attackInfo.AddElements(self.elementType)
+
         if isCrit:
             print(Fore.RED + Style.BRIGHT + "Critical Hit!" + Style.RESET_ALL)
-            target.Damage(round(self.GetDamage() * self.critDamageMult))
+            attackInfo.damage = round(attackInfo.damage * self.critDamageMult)
             if (gc.playerCharacter.HasRelic(Relics.FangoftheRaven)):
                 StatusEffect.Apply(target, StatusEffect.BleedEffect, Relics.FangoftheRaven.BLEED_AMOUNT)
-        else:
-            target.Damage(self.GetDamage())
+                
+        target.Damage(attackInfo)
 
     def SetDamage(self, damage: int):
         self.baseDamage = damage
@@ -179,12 +188,16 @@ class Weapon(TargetUseableItem, LevelableItem):
         damage = self.baseDamage + self.CalculateAdditionalLevelDamage()
         if (not gc.playerHasAttackedLastTurn) and gc.playerCharacter.HasRelic(Relics.StonehoofTotem):
             damage = round(damage * (1 + Relics.StonehoofTotem.DAMAGE_MULT_WHEN_NOT_ATTACK))
-        damage = round(damage * gc.playerCharacter.damageMultiplier)
+        damage = round(damage * gc.playerCharacter.outgoingDamageMultiplier)
         damage += gc.playerCharacter.additionalRawDamage
         return damage
     
     def CalculateAdditionalLevelDamage(self) -> int:
         return round(self.baseDamage * ((self.itemLevel - 1) * Weapon.DAMAGE_MULT_PER_LEVEL))
+    
+    def SetElement(self, elementType: ElementTag):
+        self.elementType = elementType
+        return self
     
 class LifestealWeapon(Weapon):
     def GetDesc(self):
@@ -210,28 +223,6 @@ class RapidfireWeapon(Weapon):
 
     def SetAttackCount(self, count: int):
         self.attackCount = count
-        return self
-
-class ElementalWeapon(Weapon):
-    def __init__(self):
-        from ElementTags import ElementTag
-        super().__init__()
-        self.elementType: ElementTag = ElementTag.FIRE
-        self.effectDuration = 3
-
-    def GetDesc(self):
-        return super().GetDesc() + f" - {self.elementType.name.capitalize()} Element."
-    
-    def OnUse(self, target):
-        super().OnUse(target)
-        # Status effects applied via SetEffectToApply
-
-    def SetElement(self, elementType: ElementTag):
-        self.elementType = elementType
-        return self
-    
-    def SetEffectDuration(self, duration: int):
-        self.effectDuration = duration
         return self
 
 class SniperWeapon(Weapon):
@@ -355,41 +346,47 @@ class Antidote(Potion):
         target.RemoveEffect(StatusEffect.PoisonEffect)
         return super().OnUse(target)
 
-class PoisonApplyPotion(Potion):
-    """Offensive potion that poisons enemies."""
-    def __init__(self):
+class EffectPotion(Potion):
+    def __init__(self, effect_type: type | None = None, stacks: int = 1):
         super().__init__()
-        self.potency = 2
+        # list of (effectType, stacks)
+        self.effects: list[tuple[type, int]] = []
+        if effect_type is not None:
+            self.effects.append((effect_type, stacks))
 
-    def GetDesc(self):
-        return super().GetDesc() + f" - Poisons target for {self.potency}"
-    
-    def OnUse(self, target):
-        import StatusEffect
-        StatusEffect.Apply(target, StatusEffect.PoisonEffect, self.potency)
-        super().OnUse(target)
-
-    def SetPotency(self, potency: int):
-        self.potency = potency
+    def SetEffect(self, effect_type: type, stacks: int = 1):
+        self.effects = [(effect_type, stacks)]
         return self
 
-class BleedApplyPotion(Potion):
-    """Offensive potion that causes bleeding."""
-    def __init__(self):
-        super().__init__()
-        self.severity = 3
+    def AddEffect(self, effect_type: type, stacks: int = 1):
+        self.effects.append((effect_type, stacks))
+        return self
+
+    def SetStacks(self, stacks: int):
+        # overwrite stacks for the first effect if present
+        if len(self.effects) > 0:
+            eff, _ = self.effects[0]
+            self.effects[0] = (eff, stacks)
+        return self
 
     def GetDesc(self):
-        return super().GetDesc() + f" - Inflicts {self.severity} bleeding on target"
-    
+        if len(self.effects) == 0:
+            return super().GetDesc()
+        import StatusEffect
+        effects = []
+        for effectType, stacks in self.effects:
+            try:
+                tempEffect = effectType(self, stacks)
+                effects.append(f"{tempEffect.GetName()}x{tempEffect.stacks}")
+            except Exception:
+                effects.append(effectType.__name__)
+        return super().GetDesc() + " - Applies: " + ", ".join(effects)
+
     def OnUse(self, target):
         import StatusEffect
-        StatusEffect.Apply(target, StatusEffect.BleedEffect, self.severity)
+        for eff, stacks in self.effects:
+            StatusEffect.Apply(target, eff, stacks)
         super().OnUse(target)
-
-    def SetSeverity(self, severity: int):
-        self.severity = severity
-        return self
 
 itemsList = [
     # === BASIC WEAPONS ===
@@ -397,6 +394,7 @@ itemsList = [
     Weapon().SetName("Wooden Club").SetRarity(92).SetUseCost(2).SetDamage(16),
     Weapon().SetName("Iron Dagger").SetRarity(80).SetUseCost(1).SetDamage(8),
     Weapon().SetName("Steel Sword").SetRarity(75).SetUseCost(2).SetDamage(22),
+    Weapon().SetName("Torch").SetRarity(80).SetUseCost(1).SetDamage(5).SetElement(ElementTag.FIRE),
     
     # === INTERMEDIATE WEAPONS ===
     Weapon().SetName("Adventurer's Sword").SetRarity(60).SetUseCost(2).SetDamage(25),
@@ -409,14 +407,14 @@ itemsList = [
     LifestealWeapon().SetName("Vampire Dagger").SetRarity(20).SetUseCost(1).SetDamage(12),
     Weapon().SetName("Poison Dagger").SetRarity(35).SetUseCost(1).SetDamage(10).SetEffectToApply(StatusEffect.PoisonEffect),
     Weapon().SetName("Venom Fang").SetRarity(18).SetUseCost(1).SetDamage(14).SetEffectToApply(StatusEffect.PoisonEffect, 2),
-    Weapon().SetName("Infected Blade").SetRarity(25).SetUseCost(2).SetDamage(18).SetEffectToApply(StatusEffect.BleedEffect),
+    Weapon().SetName("Serrated Blade").SetRarity(25).SetUseCost(2).SetDamage(18).SetEffectToApply(StatusEffect.BleedEffect),
     RapidfireWeapon().SetName("Shank").SetRarity(48).SetUseCost(1).SetDamage(3).SetAttackCount(4).SetEffectToApply(StatusEffect.BleedEffect),
     
     # === RAPIDFIRE WEAPONS ===
     RapidfireWeapon().SetName("Throwing Knives").SetRarity(40).SetUseCost(1).SetDamage(4).SetAttackCount(3),
-    RapidfireWeapon().SetName("Twin Hatchets").SetRarity(22).SetUseCost(2).SetDamage(16).SetAttackCount(2),
-    RapidfireWeapon().SetName("Hunter's Bow").SetRarity(28).SetUseCost(2).SetDamage(20).SetAttackCount(2),
-    RapidfireWeapon().SetName("Bladed Whip").SetRarity(15).SetUseCost(2).SetDamage(12).SetAttackCount(3),
+    RapidfireWeapon().SetName("Twin Hatchets").SetRarity(12).SetUseCost(2).SetDamage(16).SetAttackCount(2),
+    RapidfireWeapon().SetName("Hunter's Bow").SetRarity(16).SetUseCost(2).SetDamage(12).SetAttackCount(2),
+    RapidfireWeapon().SetName("Bladed Whip").SetRarity(10).SetUseCost(2).SetDamage(12).SetAttackCount(3),
     
     # === LIFESTEAL WEAPONS ===
     LifestealWeapon().SetName("Crimson Fang").SetRarity(8).SetUseCost(1).SetDamage(18),
@@ -430,9 +428,9 @@ itemsList = [
     Weapon().SetName("Cursed Blade").SetRarity(4).SetUseCost(2).SetDamage(55).SetEffectToApply(StatusEffect.BleedEffect, 5),
     
     # === ELEMENTAL WEAPONS ===
-    ElementalWeapon().SetName("Flame Sword").SetRarity(14).SetUseCost(2).SetDamage(30).SetElement(ElementTag.FIRE),
-    ElementalWeapon().SetName("Frost Lance").SetRarity(11).SetUseCost(2).SetDamage(28).SetElement(ElementTag.WATER),
-    ElementalWeapon().SetName("Lightning Axe").SetRarity(9).SetUseCost(3).SetDamage(40).SetElement(ElementTag.LIGHTNING),
+    Weapon().SetName("Flame Sword").SetRarity(14).SetUseCost(2).SetDamage(30).SetElement(ElementTag.FIRE),
+    Weapon().SetName("Frost Lance").SetRarity(11).SetUseCost(2).SetDamage(28).SetElement(ElementTag.WATER),
+    Weapon().SetName("Lightning Axe").SetRarity(9).SetUseCost(3).SetDamage(40).SetElement(ElementTag.LIGHTNING),
     
     # === SNIPER WEAPONS ===
     SniperWeapon().SetName("Sniper Bow").SetRarity(7).SetUseCost(2).SetDamage(48).SetCritDamageMultiplier(3.0),
@@ -462,10 +460,23 @@ itemsList = [
     SmokeBomb().SetName("Smoke Pellet").SetRarity(38).SetUseCost(1).SetUses(2),
     
     # === OFFENSIVE POTIONS ===
-    PoisonApplyPotion().SetName("Poison Vial").SetRarity(35).SetUseCost(1).SetUses(2).SetPotency(2),
-    PoisonApplyPotion().SetName("Toxic Serum").SetRarity(18).SetUseCost(1).SetUses(1).SetPotency(4),
-    BleedApplyPotion().SetName("Bloodletting Vial").SetRarity(30).SetUseCost(1).SetUses(2).SetSeverity(2),
-    BleedApplyPotion().SetName("Hemorrhage Potion").SetRarity(14).SetUseCost(1).SetUses(1).SetSeverity(5),
+    EffectPotion().SetName("Poison Vial").SetRarity(35).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.PoisonEffect, 2),
+    EffectPotion().SetName("Toxic Serum").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.PoisonEffect, 4),
+    EffectPotion().SetName("Bloodletting Vial").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.BleedEffect, 2),
+    EffectPotion().SetName("Hemorrhage Potion").SetRarity(14).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.BleedEffect, 5),
+    # === STATUS EFFECT POTIONS ===
+    EffectPotion().SetName("Vulnerability Draught").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.Vulnerablity, 3),
+    EffectPotion().SetName("Weakening Potion").SetRarity(28).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Weakness, 2),
+    EffectPotion().SetName("Resistance Tonic").SetRarity(25).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Resistance, 3),
+    # === NEW SPECIAL POTIONS ===
+    # Enfeebling Elixir: applies both Weakness and Vulnerability for moderate duration
+    EffectPotion().SetName("Enfeebling Elixir").SetRarity(30).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Weakness, 2).AddEffect(StatusEffect.Vulnerablity, 2),
+    # Fortitude Tonic: grants protective fortitude (shield) for a short duration
+    EffectPotion().SetName("Fortitude Tonic").SetRarity(26).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.FortitudeEffect, 2),
+    # Berserker's Brew: grants large damage boost for a few turns, then applies Weakness on expiry
+    EffectPotion().SetName("Berserker's Brew").SetRarity(14).SetUseCost(2).SetUses(1).SetEffect(StatusEffect.BerserkEffect, 3),
+    # Vampiric Tonic: grants 25% lifesteal for 3 turns
+    EffectPotion().SetName("Vampiric Tonic").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.LifestealEffect, 6),
 
     # === USEFUL ITEMS ===
     #TreasureItem().SetName("Relic Shard").SetRarity(5),

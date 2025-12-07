@@ -142,7 +142,7 @@ class Shop:
         self.PrintMoney()
         print("Here are your items available for sale:")
         for index, item in enumerate(gc.playerCharacter.items):
-            sellPrice = item.GetGoldCost() // 2
+            sellPrice = item.GetGoldCost() // 4
             sellPriceTag = f"[{Fore.YELLOW}{Style.BRIGHT}+{sellPrice} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {sellPriceTag} {item.GetDesc()}")
 
@@ -168,4 +168,4 @@ class Shop:
         except Exception as e:
             print(e)
         else:
-            gc.playerCharacter.GiveGold(item.GetGoldCost() // 2)
+            gc.playerCharacter.GiveGold(item.GetGoldCost() // 4)

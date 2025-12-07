@@ -39,11 +39,12 @@ class TrapEvent(AGameEvent):
     chance = 15
 
     def TriggerEvent(self):
+        from AttackInfo import AttInfo
         import GameCore as gc
 
         print(f"{Fore.RED}You have triggered a hidden trap!{Style.RESET_ALL}")
         damage = random.randrange(5, 16)
-        gc.playerCharacter.Damage(damage)
+        gc.playerCharacter.Damage(AttInfo(damage))
         print(f"You take {Style.BRIGHT}{Fore.RED}{damage}{Style.RESET_ALL} damage from the trap!")
 
 class MineEvent(AGameEvent):
