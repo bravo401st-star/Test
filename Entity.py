@@ -9,7 +9,6 @@ from colorama import Fore, Back, Style
 import Actions
 from EnemyTags import EnemyTag
 import Relics
-from typing import Self
 from AttackInfo import AttInfo
 
 class AEntity(ABC):
@@ -31,7 +30,11 @@ class AEntity(ABC):
         pass
 
     def GetAdditionalDesc(self) -> str:
-        return str()
+        string = str()
+        if hasattr(self, "gold"):
+            string = f" [GOLD: {Fore.YELLOW}{Style.BRIGHT}{int(getattr(self, 'gold'))}{Style.RESET_ALL}]"
+
+        return string
     
     def GetEvasion(self) -> float:
         return min(0.75, self.evasion)
@@ -197,6 +200,8 @@ class BasicEnemy(AEntity):
                 print(f"{Fore.CYAN}Your {Style.BRIGHT}Soulvessel Jar{Style.RESET_ALL}{Fore.CYAN} has filled and grants you a their energy!{Style.RESET_ALL}")
                 gc.playerCharacter.maxStamina += 1
 
+        if hasattr(self, "gold"):
+            gc.playerCharacter.GiveGold(int(getattr(self, "gold")))
         return super().Kill()
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -337,6 +342,7 @@ class Player(AEntity):
         self.gold = 0
         self.relics: list[Relics.ARelic] = []
         self.critialHitChance = 0.05 # 5% base crit chance
+        self.applyBleedChance = 0.0
 
     def GiveRelic(self, relic: Relics.ARelic | None):
         if relic is None:
@@ -397,7 +403,7 @@ class Player(AEntity):
     def Heal(self, amount: int):
         if self.HasRelic(Relics.CelestialOrb):
             amount = round(amount * (1 + Relics.CelestialOrb.HEALING_MULT))
-            print(f"{self.name}'s Life Spring Amulet increases healing to {amount}!")
+            print(f"{self.name}'s Celestial Orb increases healing to {amount}!")
 
         if self.HasRelic(Relics.ShadowboundMark):
             amount = round(amount * Relics.ShadowboundMark.HEALING_REDUCTION_PERCENT)
@@ -419,7 +425,7 @@ class Player(AEntity):
         if (self.gold < amount):
             print(f"Not enough gold! Need {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}, has {Fore.YELLOW}{Style.BRIGHT}{self.gold} gold{Style.RESET_ALL}.")
             return False
-        self.gold -= amount
+        self.TakeGold(amount)
         print(f"{self.name} spent {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}. Current gold: {Fore.YELLOW}{Style.BRIGHT}{self.gold}{Style.RESET_ALL}")
         return True
     
@@ -434,13 +440,15 @@ class Player(AEntity):
     def GetGold(self) -> int:
         return self.gold
     
+    def TakeGold(self, targetAmount) -> int:
+        oldGold = self.gold
+        self.gold = max(0, self.gold - targetAmount)
+        return oldGold - self.gold
+    
     def CanAfford(self, amount: int) -> bool:
         return self.gold >= amount
     
     def DoTurn(self):
-        if self.HasRelic(Relics.CelestialOrb):
-            self.Heal(round(self.maxHealth * Relics.CelestialOrb.HEAL_START_COMBAT_PERCENT)) # heal 10% max health each turn
-
         bloodOathCount = self.GetRelicCount(Relics.BloodOathPendant)
         if bloodOathCount > 0:
             self.Damage(AttInfo(Relics.BloodOathPendant.HEALTH_LOST_PER_TURN * bloodOathCount))

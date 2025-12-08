@@ -177,7 +177,10 @@ class Weapon(TargetUseableItem, LevelableItem):
             attackInfo.damage = round(attackInfo.damage * self.critDamageMult)
             if (gc.playerCharacter.HasRelic(Relics.FangoftheRaven)):
                 StatusEffect.Apply(target, StatusEffect.BleedEffect, Relics.FangoftheRaven.BLEED_AMOUNT)
-                
+        
+        if gc.playerCharacter.HasRelic(Relics.RendingClaw) and random.random() < gc.playerCharacter.applyBleedChance:
+            StatusEffect.Apply(target, StatusEffect.BleedEffect, 1)
+
         target.Damage(attackInfo)
 
     def SetDamage(self, damage: int):
@@ -198,6 +201,19 @@ class Weapon(TargetUseableItem, LevelableItem):
     def SetElement(self, elementType: ElementTag):
         self.elementType = elementType
         return self
+    
+class NoTargetWeapon(Weapon):
+    def GetTarget(self) -> AEntity:
+        import random
+        return gc.enemiesInScene[random.randrange(0, len(gc.enemiesInScene))]
+    
+class SporecloudWeapon(UseableItem):
+    def OnUse(self, target):
+        from colorama import Fore, Style
+        print(f"{Fore.GREEN}{Style.DIM}You spread poisonous spores throughout the area!{Style.RESET_ALL}")
+        for enemy in gc.enemiesInScene:
+            StatusEffect.Apply(enemy, StatusEffect.PoisonEffect, 8)
+        return super().OnUse(target)
     
 class LifestealWeapon(Weapon):
     def GetDesc(self):
@@ -458,12 +474,13 @@ itemsList = [
     Antidote().SetName("Antidote").SetRarity(45).SetUseCost(1).SetUses(1),
     SmokeBomb().SetName("Smoke Bomb").SetRarity(28).SetUseCost(1).SetUses(1),
     SmokeBomb().SetName("Smoke Pellet").SetRarity(38).SetUseCost(1).SetUses(2),
+    SporecloudWeapon().SetName("Spore Cloud Sack").SetRarity(45).SetUseCost(1).SetUses(2),
     
     # === OFFENSIVE POTIONS ===
-    EffectPotion().SetName("Poison Vial").SetRarity(35).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.PoisonEffect, 2),
-    EffectPotion().SetName("Toxic Serum").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.PoisonEffect, 4),
-    EffectPotion().SetName("Bloodletting Vial").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.BleedEffect, 2),
-    EffectPotion().SetName("Hemorrhage Potion").SetRarity(14).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.BleedEffect, 5),
+    EffectPotion().SetName("Poison Vial").SetRarity(35).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.PoisonEffect, 4),
+    EffectPotion().SetName("Toxic Serum").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.PoisonEffect, 12),
+    EffectPotion().SetName("Bloodletting Vial").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.BleedEffect, 3),
+    EffectPotion().SetName("Hemorrhage Potion").SetRarity(14).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.BleedEffect, 8),
     # === STATUS EFFECT POTIONS ===
     EffectPotion().SetName("Vulnerability Draught").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.Vulnerablity, 3),
     EffectPotion().SetName("Weakening Potion").SetRarity(28).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Weakness, 2),

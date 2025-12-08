@@ -98,7 +98,14 @@ class PoisonEffect(AEffect):
 class BleedEffect(AEffect):
     def OnEffectTick(self):
         import random
-        self.attachedEntity.Damage(AttInfo(random.randrange(1, 5), None, True))
+        import GameCore as gc
+        from Entity import Player
+        from Relics import RendingClaw
+        damage = random.randrange(1, 5)
+        rendingRelicCount = gc.playerCharacter.GetRelicCount(RendingClaw)
+        if type(self.attachedEntity) is not Player and rendingRelicCount > 0:
+            damage += RendingClaw.EXTRA_BLEEDING_DAMAGE * rendingRelicCount
+        self.attachedEntity.Damage(AttInfo(damage, None, True))
         return super().OnEffectTick()
     
     def OnEffectApply(self):

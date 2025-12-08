@@ -217,6 +217,9 @@ def OnCombatStart():
     if playerCharacter.HasRelic(Relics.Dreamcatcher):
         playerCharacter.stamina += 2
         print(f"{Fore.CYAN}Your {Style.BRIGHT}Dreamcatcher{Style.NORMAL} grants you +{Relics.Dreamcatcher.EXTRA_STAMINA} stamina for the first turn!{Style.RESET_ALL}")
+    
+    if playerCharacter.HasRelic(Relics.CelestialOrb):
+            playerCharacter.Heal(round(playerCharacter.maxHealth * Relics.CelestialOrb.HEAL_START_COMBAT_PERCENT))
 
 
 def EndPlayerTurn():

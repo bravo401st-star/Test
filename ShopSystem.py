@@ -75,7 +75,7 @@ class Shop:
         levelableItems: list[ItemSystem.LevelableItem] = []
 
         for item in gc.playerCharacter.items:
-            if issubclass(type(item), ItemSystem.LevelableItem):
+            if issubclass(type(item), ItemSystem.LevelableItem) and item.itemLevel < item.maxLevel:
                 levelableItems.append(item)
 
         # List out items in inventory
@@ -83,6 +83,9 @@ class Shop:
             cost = int(item.GetGoldCost() * self.discount) * item.itemLevel
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {priceTag} {item.GetDesc()}")
+
+        if len(levelableItems) <= 0:
+            print(f"No upgradable items!")
 
         # Select item to buy
         choice = input("\nEnter the item you wish to upgrade, or '0' to cancel: ")
@@ -101,6 +104,7 @@ class Shop:
             else:
                 print("Invalid item selection.")
         
+        Commands.c_clear()
         self.OpenShop()
 
     def BuyItems(self):

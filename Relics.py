@@ -239,11 +239,22 @@ class FangoftheRaven(ARelic):
     BLEED_AMOUNT: int = 8
     def __init__(self):
         self.name = "Fang of the Raven"
-        self.description = f"+{int(FangoftheRaven.EXTRA_CRIT_CHANCE_PERCENT * 100)}% crit chance. On a crit, apply {FangoftheRaven.BLEED_AMOUNT} Bleed."
+        self.description = f"+{int(FangoftheRaven.EXTRA_CRIT_CHANCE_PERCENT * 100)}% crit chance. On a crit, apply {FangoftheRaven.BLEED_AMOUNT} bleed."
 
     def OnAcquire(self):
         import GameCore as gc
         gc.playerCharacter.critialHitChance += FangoftheRaven.EXTRA_CRIT_CHANCE_PERCENT
+
+class RendingClaw(ARelic):
+    EXTRA_BLEEDING_DAMAGE = 5
+    BLEED_CHANCE = 0.5
+    def __init__(self):
+        self.name = "Rending Claw"
+        self.description = f"+{int(RendingClaw.BLEED_CHANCE * 100)}% chance to apply bleed. +{RendingClaw.EXTRA_BLEEDING_DAMAGE} bleed damage."
+
+    def OnAcquire(self):
+        import GameCore as gc
+        gc.playerCharacter.applyBleedChance += RendingClaw.BLEED_CHANCE
 
 """
 class KeystoneIdol(ARelic):

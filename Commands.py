@@ -96,9 +96,9 @@ command_map = {
     "clear": Command("c_clear", "Clears the console"),
 
     # CHEAT COMMANDS
-    "spawn-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
+    "give-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "item-list": Command("c_itemlist", "Shows all items in game by index", True),
-    "entity-list": Command("c_entitylist", "Shows all entities in game by index", True),
+    "enemy-list": Command("c_entitylist", "Shows all entities in game by index", True),
     "spawn-enemy": Command("c_spawnenemy", "Spawn an enemy into the scene", True).SetParams(CommandParam.Parameter("enemyIndex", CommandParam.IntArgument, True), CommandParam.Parameter("level", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
     "god-mode": Command("c_godmode", "Toggle godmode", True),
     "kill-enemy": Command("c_killenemy", "Kills enemy", True).SetParams(CommandParam.Parameter("enemyIndex [-a for all]", CommandParam.IntArgument, True)),
@@ -434,7 +434,7 @@ def PrintOutInventory():
             extraText = ""
             if type(relic) is Relics.SoulvesselJar:
                 extraText = f" [{Fore.MAGENTA}{Style.BRIGHT}{Relics.SoulvesselJar.killsToFill - Relics.soulvesselJarKillsNeeded}/{Relics.SoulvesselJar.killsToFill}{Style.RESET_ALL}]"
-            print(f"{index}: {relic.name} - {relic.description}{extraText}")
+            print(f"{index}: {Fore.MAGENTA}{Style.BRIGHT}{relic.name}{Style.RESET_ALL} - {Fore.MAGENTA}{relic.description}{Style.RESET_ALL}{extraText}")
             index += 1
 
 def c_use(parameters):

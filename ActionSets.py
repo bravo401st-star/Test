@@ -51,13 +51,18 @@ mossbound_action_set.AppendAction(AP.AttackAction(25).SetName("Heavy Slam").SetS
 mossbound_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.Resistance, 3).SetName("Sporeshield").SetShortDesc("Preparing to release spores").SetChance(0.5))
 
 crystal_husk_action_set = AP.ActionSet()
-crystal_husk_action_set.AppendAction(AP.AttackAction(10).SetName("Jab").SetShortDesc("Preparing to jab"))
+crystal_husk_action_set.AppendAction(AP.AttackAction(8).SetName("Jab").SetShortDesc("Preparing to jab"))
 crystal_husk_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Vulnerablity, 3).SetName("Resonance").SetShortDesc("Preparing to resonate"))
 
 crystal_shard_action_set = AP.ActionSet()
 crystal_shard_action_set.AppendAction(AP.AttackAction(15).SetName("Jab").SetShortDesc("Preparing to jab"))
 
 mourning_shade_action_set = AP.ActionSet()
-mourning_shade_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Weakness, 3).SetName("Weeping Touch").SetShortDesc("Preparing to weep").SetRepeat(range(3)))
+mourning_shade_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Weakness, 3).SetName("Weep").SetShortDesc("Preparing to weep").SetRepeat(range(3)))
 mourning_shade_action_set.AppendAction(AP.SorrowFeedAction().SetName("Sorrow Feed").SetShortDesc("Preparing to feed off your sorrow..."))
 mourning_shade_action_set.AppendAction(AP.AttackAction(3).SetName("Screech").SetShortDesc("Preparing to screech").SetChance(0.6))
+
+bandit_action_set = AP.ActionSet()
+bandit_action_set.AppendAction(AP.StealAndAttackAction(12, range(5,20)).SetName("Mug").SetShortDesc("Preparing to mug and stab"))
+bandit_action_set.AppendAction(AP.TauntAction("Heh heh easy money boys!").SetName("Taunt").SetShortDesc("Preparing to taunt").SetChance(0.1))
+bandit_action_set.AppendAction(AP.EscapeAction("Ha ha! Sucker!").SetName("Escape").SetShortDesc("Preparing to escape...").SetChance(0.2))

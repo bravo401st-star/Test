@@ -17,7 +17,13 @@ __enemy_pool__ = [
     Entity.TransformOnDeathEnemy(12, "split into multiple shards!", range(2,4)).SetName("Crystal Cluster").SetMaxHealth(42, setHealthToo=True).SetDropExp(range(2,5)).AttachActionSet(ActionSets.crystal_husk_action_set),
     Entity.BasicEnemy().SetName("Crystal Shard").SetMaxHealth(8, setHealthToo=True).SetDropExp(range(1,3)).AttachActionSet(ActionSets.crystal_shard_action_set),
     #Entity.BasicEnemy().SetName("Hollowed Prophet").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2,4)),
-    Entity.BasicEnemy().SetName("Mourning Shade").SetMaxHealth(50, setHealthToo=True).SetDropExp(range(3,6)).AttachActionSet(ActionSets.mourning_shade_action_set)
+    Entity.BasicEnemy().SetName("Mourning Shade").SetMaxHealth(50, setHealthToo=True).SetDropExp(range(3,6)).AttachActionSet(ActionSets.mourning_shade_action_set),
+    #Entity.BasicEnemy().SetName("Cultist"),
+    #Entity.BasicEnemy().SetName("Ironclad Marshall"),
+    #Entity.BasicEnemy().SetName("Slime"),
+    #Entity.BasicEnemy().SetName("Vampire Spawn"),
+    Entity.BasicEnemy().SetName("Bandit").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.bandit_action_set)
+    #Entity.BasicEnemy().SetName("Mimic")
 ]
 
 __naturally_spawning_pool___ = []

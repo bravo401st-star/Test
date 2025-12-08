@@ -234,6 +234,43 @@ class SorrowFeedAction(AAction):
         
         return super().PerformAction()
     
+class StealAndAttackAction(AttackAction):
+    def __init__(self, damage, stealGoldRange: range):
+        super().__init__(damage)
+        self.stealGoldRange = stealGoldRange
+
+    def PerformAction(self):
+        from colorama import Fore, Style
+        from ItemSystem import AItem
+        stolenItem: AItem | None = None
+        if random.random() < self.stealItemChance:
+            stolenItem = gc.playerCharacter.items[random.randrange(0, len(gc.playerCharacter.items))]
+        goldTaken = gc.playerCharacter.TakeGold(random.randrange(self.stealGoldRange.start, self.stealGoldRange.stop))
+
+        if goldTaken > 0:
+            print(f"{self.parentEntity.name} stole {Fore.YELLOW}{Style.BRIGHT}{goldTaken}{Style.RESET_ALL} gold!")
+        else:
+            print(f"[#{gc.GetIndexOfEnemy(self.parentEntity)}][LVL {self.parentEntity.level}] {self.parentEntity.name}: Huh? We got a broke bloke!")
+
+        if hasattr(self.parentEntity, "gold"):
+            goldTaken += int(getattr(self.parentEntity, "gold"))
+        setattr(self.parentEntity, "gold", goldTaken)
+
+        return super().PerformAction()
+    
+class EscapeAction(AAction):
+    def __init__(self, escapeTaunt: str):
+        self.escapeTaunt: str = escapeTaunt
+        super().__init__()
+
+    def PerformAction(self):
+        from colorama import Fore, Style
+        if len(self.escapeTaunt) > 0:
+            print(f"[#{gc.GetIndexOfEnemy(self.parentEntity)}][LVL {self.parentEntity.level}] {self.parentEntity.name}: Ha ha! Sucker!")
+        gc.RemoveEnemyFromScene(self.parentEntity)
+        print(f"{Fore.RED}{Style.BRIGHT}{self.parentEntity.name}{Style.NORMAL} escaped!{Style.RESET_ALL}")
+        return super().PerformAction()
+    
 
 #############################################################################
 # Action set class
