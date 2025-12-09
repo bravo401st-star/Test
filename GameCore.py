@@ -92,7 +92,6 @@ def OnEntityDie(entity: Entity.AEntity | None):
             if issubclass(type(enemy), Entity.NecromancerEnemy):
                 enemy.TryToRaiseDead(entity) # pyright: ignore[reportAttributeAccessIssue]
                 break
-    CheckEncounterStatus()
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
@@ -262,6 +261,7 @@ def ProcessEnemyTurn():
                 continue
         enemy.DoTurn()
         time.sleep(0.2)
+    CheckEncounterStatus()
 
 def OnLevelUp():
     global waitingLevelUpRewards

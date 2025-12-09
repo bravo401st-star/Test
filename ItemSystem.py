@@ -185,6 +185,7 @@ class Weapon(TargetUseableItem, LevelableItem):
         bloodOiledChainCount = gc.playerCharacter.GetRelicCount(Relics.BloodOiledChain)
         if bloodOiledChainCount > 0:
             Relics.bloodOiledChainBonusDamagePerAttack += Relics.BloodOiledChain.BONUS_DAMAGE * bloodOiledChainCount
+        
 
     def SetDamage(self, damage: int):
         self.baseDamage = damage

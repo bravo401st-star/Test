@@ -31,6 +31,7 @@ def GameLoop():
         if (command == REPEAT_COMMAND):
             command = Commands.lastCommand
         PushInput(command)
+        gc.CheckEncounterStatus()
 
     print("Game over!")
     print(f"[Kills: {gc.killCount}] [Level Reached: {gc.playerCharacter.level.level}]")

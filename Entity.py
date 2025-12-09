@@ -486,3 +486,5 @@ class Player(AEntity):
             additional += Relics.bloodOiledChainBonusDamagePerAttack
 
         return additional
+    
+    additionalRawDamage = property(get_additionalRawDamage, AEntity.set_additionalRawDamage)
