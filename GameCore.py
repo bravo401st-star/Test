@@ -200,9 +200,12 @@ def ChooseNextEvent():
 def OnCombatStart():
     import Relics
     import StatusEffect
+    from AttackInfo import AttInfo
+    from ElementTags import ElementTag
     global isFirstTurn
     global playerCharacter
     global playerHasAttackedThisTurn
+    global enemiesInScene
 
     isFirstTurn = True
     playerHasAttackedThisTurn = False
@@ -221,23 +224,31 @@ def OnCombatStart():
         print(f"{Fore.CYAN}Your {Style.BRIGHT}Dreamcatcher{Style.NORMAL} grants you +{Relics.Dreamcatcher.EXTRA_STAMINA} stamina for the first turn!{Style.RESET_ALL}")
     
     if playerCharacter.HasRelic(Relics.CelestialOrb):
-            playerCharacter.Heal(round(playerCharacter.maxHealth * Relics.CelestialOrb.HEAL_START_COMBAT_PERCENT))
+        playerCharacter.Heal(round(playerCharacter.maxHealth * Relics.CelestialOrb.HEAL_START_COMBAT_PERCENT))
+
+    smolderingCoreCount = playerCharacter.GetRelicCount(Relics.SmolderingCore)
+    if smolderingCoreCount > 0:
+        Relics.SmolderingCore.TriggerEffect(Relics.SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL * smolderingCoreCount)
 
 
 def EndPlayerTurn():
-    global playerCharacter
-    global playerHasAttackedThisTurn
-    global playerHasAttackedLastTurn
     global isFirstTurn
 
     isFirstTurn = False
     ProcessEnemyTurn()
+    OnPlayerTurnStart()
+    pass
+
+def OnPlayerTurnStart():
+    global playerCharacter
+    global playerHasAttackedThisTurn
+    global playerHasAttackedLastTurn
+
     print("\nNew turn!")
     playerCharacter.stamina = playerCharacter.maxStamina
     playerCharacter.DoTurn()
     playerHasAttackedLastTurn = playerHasAttackedThisTurn
     playerHasAttackedThisTurn = False
-    pass
 
 def ProcessEnemyTurn():
     global enemiesInScene

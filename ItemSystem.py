@@ -397,7 +397,7 @@ class EffectPotion(Potion):
         for effectType, stacks in self.effects:
             try:
                 tempEffect = effectType(self, stacks)
-                effects.append(f"{tempEffect.GetName()}x{tempEffect.stacks}")
+                effects.append(f"{tempEffect.stacks} {tempEffect.GetName()}")
             except Exception:
                 effects.append(effectType.__name__)
         return super().GetDesc() + " - Applies: " + ", ".join(effects)

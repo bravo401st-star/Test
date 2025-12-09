@@ -7,8 +7,10 @@ class AttInfo():
         self.ignoresEvasion = ignoreEvasion
         self.elements: list[ElementTag] = []
 
-    def AddElements(self, *elements: ElementTag):
+    def AddElements(self, *elements: ElementTag | None):
         for element in elements:
+            if element is None:
+                continue
             self.elements.append(element)
 
         return self

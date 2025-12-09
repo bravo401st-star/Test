@@ -104,10 +104,14 @@ class AEntity(ABC):
         global e_EntityDeath
         e_EntityDeath.Trigger(self)
 
+    def OnEvade(self, attackInfo: AttInfo):
+        print(f"{self.name} evaded the attack!")
+
     def Damage(self, attackInfo: AttInfo) -> bool:
         if (self.health <= 0):
             return False
         if not attackInfo.ignoresEvasion and self.CheckEvasion():
+            self.OnEvade(attackInfo)
             return False
         attackInfo.damage -= int(attackInfo.damage * self.GetDamageResist())
         print(self.name + " took " + str(attackInfo.damage) + " damage!")
@@ -140,7 +144,6 @@ class AEntity(ABC):
             return False
         roll = random.uniform(0.0, 1.0)
         if (roll < self.GetEvasion()):
-            print(f"{self.name} evaded the attack!")
             return True
         return False
 
@@ -217,6 +220,10 @@ class BasicEnemy(AEntity):
 
         if hasattr(self, "gold"):
             gc.playerCharacter.GiveGold(int(getattr(self, "gold")))
+
+        smolderingCoreCount = gc.playerCharacter.GetRelicCount(Relics.SmolderingCore)
+        if smolderingCoreCount > 0:
+            Relics.SmolderingCore.TriggerEffect(Relics.SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL * smolderingCoreCount)
         return super().Kill()
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -305,8 +312,9 @@ class EmberlingEnemy(BasicEnemy):
         self.size = 1
 
     def Detonate(self):
+        from ElementTags import ElementTag
         print(f"Emberling detonates itself!")
-        gc.playerCharacter.Damage(AttInfo(self.GetDetonateDamage(), self))
+        gc.playerCharacter.Damage(AttInfo(self.GetDetonateDamage(), self).AddElements(ElementTag.FIRE))
         self.size = int(self.size * 0.5)
 
     def GetDetonateDamage(self) -> int:
@@ -433,7 +441,14 @@ class Player(AEntity):
         if verdantCrestCount > 0 and attackInfo.HasElement(ElementTag.FIRE):
             attackInfo.damage += round(attackInfo.damage * (Relics.VerdantCrest.FIRE_WEAKNESS_PERCENT * verdantCrestCount))
 
-        return super().Damage(attackInfo)
+        result = super().Damage(attackInfo)
+
+        if result == True:
+            wardensBulwarkCount = gc.playerCharacter.GetRelicCount(Relics.WardensBulwark)
+            if wardensBulwarkCount > 0 and attackInfo.damage > Relics.WardensBulwark.DAMAGE_THRESHOLD:
+                Relics.wardensBulwarkStoreDefense += Relics.WardensBulwark.GRANTED_DEFENSE * wardensBulwarkCount
+
+        return result
     
     def GiveGold(self, amount: int):
         self.gold += amount
@@ -455,6 +470,11 @@ class Player(AEntity):
             return
         return super().Kill()
     
+    def OnEvade(self, attackInfo):
+        if self.HasRelic(Relics.PhantomSigil):
+            attackInfo.attacker.Damage(AttInfo(Relics.PhantomSigil.DAMAGE_REFLECT))
+        return super().OnEvade(attackInfo)
+
     def GetGold(self) -> int:
         return self.gold
     
@@ -475,6 +495,10 @@ class Player(AEntity):
             heal_amount = Relics.VerdantCrest.HEALTH_REGEN_PER_TURN
             self.Heal(heal_amount)
             print(f"{Fore.GREEN}The Verdant Crest heals {self.name} for {heal_amount} HP!{Fore.RESET}")
+
+        if self.HasRelic(Relics.WardensBulwark):
+            self.shield += Relics.wardensBulwarkStoreDefense
+            Relics.wardensBulwarkStoreDefense = 0
 
         return super().DoTurn()
     

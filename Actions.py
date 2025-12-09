@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import GameCore as gc
 import random
 import Entity
+from ElementTags import ElementTag
 
 # Action Types
 class AAction(ABC):
@@ -45,12 +46,13 @@ class AttackAction(AAction):
     def __init__(self, damage: int):
         self.damage = damage
         self.effectsOnHit: list[type] = []
+        self.element: ElementTag | None = None
         super().__init__()
 
     def PerformAction(self):
         from AttackInfo import AttInfo
         import StatusEffect
-        gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity))
+        gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity).AddElements(self.element))
 
         for effect in self.effectsOnHit:
             StatusEffect.Apply(gc.playerCharacter, effect)
@@ -63,6 +65,10 @@ class AttackAction(AAction):
     def SetEffectsOnHit(self, *effects):
         for effect in effects:
             self.effectsOnHit.append(effect)
+        return self
+    
+    def SetElement(self, element: ElementTag):
+        self.element = element
         return self
     
     def CalculateDamage(self):

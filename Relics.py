@@ -267,12 +267,13 @@ class ThornbackTortoiseShell(ARelic):
         gc.playerCharacter.thorns += ThornbackTortoiseShell.ADDITIONAL_THORNS
 
 class WardensBulwark(ARelic):
-    DAMAGE_THRESHOLD = 0.25
+    DAMAGE_THRESHOLD = 20
     GRANTED_DEFENSE = 10
     def __init__(self):
         super().__init__()
         self.name = "Warden's Bulwark"
         self.description = f"Taking more than {WardensBulwark.DAMAGE_THRESHOLD} damage in a single hit grants +{WardensBulwark.GRANTED_DEFENSE} Defense next turn."
+wardensBulwarkStoreDefense = 0
 
 class BloodOiledChain(ARelic):
     BONUS_DAMAGE = 1
@@ -288,7 +289,16 @@ class SmolderingCore(ARelic):
     def __init__(self):
         super().__init__()
         self.name = "Smoldering Core"
-        self.description = f"At the start of each battle, deal {SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL} fire damage to all enemies. Killing an enemy deals {SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL} more fire damage to all remaining ones."
+        self.description = f"At the start of each battle, deal {SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL} fire damage to all enemies. Killing an enemy deals {SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL} fire damage to all remaining ones."
+
+    def TriggerEffect(damage: int):
+        from AttackInfo import AttInfo
+        import GameCore as gc
+        from ElementTags import ElementTag
+        from colorama import Fore, Style
+        print(f"{Fore.CYAN}Your {Style.BRIGHT}Smoldering Core{Style.NORMAL} glows bright and ignites all enemies for {damage} damage!{Style.RESET_ALL}")
+        for enemy in gc.enemiesInScene:
+            enemy.Damage(AttInfo(damage).AddElements(ElementTag.FIRE))
 
 class VerdantCrest(ARelic):
     HEALTH_REGEN_PER_TURN = 5

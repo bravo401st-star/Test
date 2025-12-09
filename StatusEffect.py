@@ -89,7 +89,7 @@ class PoisonEffect(AEffect):
         return super().OnEffectApply()
     
     def GetName(self):
-        return f"{Fore.GREEN}{Style.BRIGHT}Poison{Style.RESET_ALL}"
+        return f"{Fore.GREEN}{Style.BRIGHT}Poison{Style.NORMAL}{Fore.RESET}"
     
     def AddStack(self, count):
         print(f"{self.attachedEntity.name} poison increases!")
@@ -113,7 +113,7 @@ class BleedEffect(AEffect):
         return super().OnEffectApply()
     
     def GetName(self):
-        return f"{Fore.RED}{Style.BRIGHT}Bleeding{Style.RESET_ALL}"
+        return f"{Fore.RED}{Style.BRIGHT}Bleeding{Style.NORMAL}{Fore.RESET}"
     
     def AddStack(self, count):
         print(f"{self.attachedEntity.name} bleed increases!")
@@ -130,7 +130,7 @@ class BoggedEffect(AEffect):
         return super().OnEffectApply()
     
     def GetName(self):
-        return f"{Fore.LIGHTCYAN_EX}Bogged{Style.RESET_ALL}"
+        return f"{Fore.LIGHTCYAN_EX}Bogged{Style.NORMAL}{Fore.RESET}"
     
     def CanBeApplied(self):
         from Entity import Player
@@ -148,7 +148,7 @@ class BlessedEffect(AEffect):
         return super().OnEffectApply()
     
     def GetName(self):
-        return f"{Fore.YELLOW}{Style.BRIGHT}Blessed{Style.RESET_ALL}"
+        return f"{Fore.YELLOW}{Style.BRIGHT}Blessed{Style.NORMAL}{Fore.RESET}"
     
 class RegenerationEffect(AEffect):
     positive: bool = True
@@ -162,7 +162,7 @@ class RegenerationEffect(AEffect):
         return super().OnEffectApply()
     
     def GetName(self):
-        return f"{Fore.GREEN}{Style.BRIGHT}Regeneration{Style.RESET_ALL}"
+        return f"{Fore.GREEN}{Style.BRIGHT}Regeneration{Style.NORMAL}{Fore.RESET}"
     
 class PhaseShifted(AEffect):
     EVASION_OFFSET: float = 0.50
@@ -179,7 +179,7 @@ class PhaseShifted(AEffect):
         return super().OnEffectRemove()
     
     def GetName(self):
-        return f"{Fore.MAGENTA}{Style.BRIGHT}Phase Shifted{Style.RESET_ALL}"
+        return f"{Fore.MAGENTA}{Style.BRIGHT}Phase Shifted{Style.NORMAL}{Fore.RESET}"
     
 class Resistance(AEffect):
     DAMAGE_MULT: float = 0.50
@@ -195,7 +195,7 @@ class Resistance(AEffect):
         return super().OnEffectRemove()
     
     def GetName(self):
-        return f"{Fore.WHITE}{Style.BRIGHT}Resistance{Style.RESET_ALL}"
+        return f"{Fore.WHITE}{Style.BRIGHT}Resistance{Style.NORMAL}{Fore.RESET}"
     
 class Vulnerablity(AEffect):
     DAMAGE_MULT: float = 0.50
@@ -211,7 +211,7 @@ class Vulnerablity(AEffect):
         return super().OnEffectRemove()
     
     def GetName(self):
-        return f"{Fore.WHITE}{Style.DIM}Vulnerablity{Style.RESET_ALL}"
+        return f"{Fore.WHITE}{Style.DIM}Vulnerablity{Style.NORMAL}{Fore.RESET}"
     
 class Weakness(AEffect):
     DAMAGE_MULT: float = 0.50
@@ -227,7 +227,7 @@ class Weakness(AEffect):
         return super().OnEffectRemove()
     
     def GetName(self):
-        return f"{Fore.YELLOW}{Style.DIM}Weakness{Style.RESET_ALL}"
+        return f"{Fore.YELLOW}{Style.DIM}Weakness{Style.NORMAL}{Fore.RESET}"
 
 class BerserkEffect(AEffect):
     DAMAGE_MULT: float = 0.50
@@ -246,7 +246,7 @@ class BerserkEffect(AEffect):
         return super().OnEffectRemove()
 
     def GetName(self):
-        return f"{Fore.RED}{Style.BRIGHT}Berserk{Style.RESET_ALL}"
+        return f"{Fore.RED}{Style.BRIGHT}Berserk{Style.NORMAL}{Fore.RESET}"
 
 class LifestealEffect(AEffect):
     positive: bool = True
@@ -271,7 +271,7 @@ class LifestealEffect(AEffect):
         return super().OnEffectRemove()
 
     def GetName(self):
-        return f"{Fore.MAGENTA}{Style.BRIGHT}Lifesteal{Style.RESET_ALL}"
+        return f"{Fore.MAGENTA}{Style.BRIGHT}Lifesteal{Style.NORMAL}{Fore.RESET}"
 
 class FortitudeEffect(AEffect):
     SHIELD_PER_STACK: int = 8
@@ -296,4 +296,4 @@ class FortitudeEffect(AEffect):
         return super().OnEffectRemove()
 
     def GetName(self):
-        return f"{Fore.CYAN}{Style.BRIGHT}Fortitude{Style.RESET_ALL}"
+        return f"{Fore.CYAN}{Style.BRIGHT}Fortitude{Style.NORMAL}{Fore.RESET}"
