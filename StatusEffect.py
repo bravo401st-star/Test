@@ -255,15 +255,15 @@ class LifestealEffect(AEffect):
         amount = 0.5
         # use dynamic attribute to track lifesteal fraction
         if not hasattr(self.attachedEntity, 'lifesteal_fraction'):
-            self.attachedEntity.lifesteal_fraction = 0.0
-        self.attachedEntity.lifesteal_fraction += amount
+            self.attachedEntity.lifesteal = 0.0
+        self.attachedEntity.lifesteal += amount
         print(f"{self.attachedEntity.name} feels vampiric power flowing through them!")
         return super().OnEffectApply()
 
     def OnEffectRemove(self):
         amount = 0.5
-        self.attachedEntity.lifesteal_fraction -= amount
-        if self.attachedEntity.lifesteal_fraction <= 0:
+        self.attachedEntity.lifesteal -= amount
+        if self.attachedEntity.lifesteal <= 0:
             try:
                 delattr(self.attachedEntity, 'lifesteal_fraction')
             except Exception:

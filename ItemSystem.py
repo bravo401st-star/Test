@@ -182,6 +182,9 @@ class Weapon(TargetUseableItem, LevelableItem):
             StatusEffect.Apply(target, StatusEffect.BleedEffect, 1)
 
         target.Damage(attackInfo)
+        bloodOiledChainCount = gc.playerCharacter.GetRelicCount(Relics.BloodOiledChain)
+        if bloodOiledChainCount > 0:
+            Relics.bloodOiledChainBonusDamagePerAttack += Relics.BloodOiledChain.BONUS_DAMAGE * bloodOiledChainCount
 
     def SetDamage(self, damage: int):
         self.baseDamage = damage
@@ -208,12 +211,12 @@ class NoTargetWeapon(Weapon):
         return gc.enemiesInScene[random.randrange(0, len(gc.enemiesInScene))]
     
 class SporecloudWeapon(UseableItem):
-    def OnUse(self, target):
+    def OnUse(self):
         from colorama import Fore, Style
         print(f"{Fore.GREEN}{Style.DIM}You spread poisonous spores throughout the area!{Style.RESET_ALL}")
         for enemy in gc.enemiesInScene:
             StatusEffect.Apply(enemy, StatusEffect.PoisonEffect, 8)
-        return super().OnUse(target)
+        return super().OnUse()
     
 class LifestealWeapon(Weapon):
     def GetDesc(self):

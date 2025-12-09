@@ -18,13 +18,14 @@ class AEntity(ABC):
         self.name = "Unnamed Entity"
         self.level = 1
         self.maxHealth = self.health
-        self.additionalRawDamage = 0
+        self._additionalRawDamage = 0
         self.outgoingDamageMultiplier = 1.0
         self.effects: list[AEffect] = []
         self.evasion = 0.0
         self.damageResistance = 0.0
         self.shield = 0
-        self.lifesteal_fraction = 0.0
+        self.lifesteal = 0.0
+        self.thorns = 0.0
 
     def OnSpawn(self):
         pass
@@ -38,6 +39,12 @@ class AEntity(ABC):
     
     def GetEvasion(self) -> float:
         return min(0.75, self.evasion)
+    
+    def set_additionalRawDamage(self, value: int):
+        self._additionalRawDamage = value
+
+    def get_additionalRawDamage(self) -> int:
+        return self._additionalRawDamage
 
     def GetDamageResist(self) -> float:
         return min(0.8, self.damageResistance)
@@ -112,14 +119,18 @@ class AEntity(ABC):
                 attackInfo.damage -= self.shield
                 self.shield = 0
         self.health -= attackInfo.damage
-        try:
-            attacker = attackInfo.attacker
-            if attacker is not None and attacker.lifesteal_fraction > 0:
-                heal_amount = round(attackInfo.damage * attacker.lifesteal_fraction)
+
+        attacker = attackInfo.attacker
+        if attacker is not None:
+            if attacker.lifesteal > 0:
+                heal_amount = round(attackInfo.damage * attacker.lifesteal)
                 if heal_amount > 0:
                     attacker.Heal(heal_amount)
-        except Exception:
-            pass
+            
+            if self.thorns > 0:
+                reflected = round(attackInfo.damage * self.thorns)
+                attacker.Damage(AttInfo(reflected))
+                print(f"{Fore.RED}{self.name} reflected {reflected} damage back at {attacker.name}!{Fore.RESET}")
         if (self.health <= 0):
             self.Kill()
         return True
@@ -153,6 +164,10 @@ class AEntity(ABC):
             effectList += f"{effect.GetName()} ({effect.stacks}), "
 
         return effectList[:-2] + "]"
+        
+    # properties
+    additionalRawDamage = property(get_additionalRawDamage, set_additionalRawDamage)
+
 
 e_EntityDeath = EventSystem.Event(AEntity)
 
@@ -263,12 +278,9 @@ class TrollEnemy(BasicEnemy):
         return super().DoTurn()
     
 class WraithEnemy(BasicEnemy):
-    def Damage(self, attackInfo: AttInfo):
-        if super().Damage(attackInfo) and attackInfo.attacker is not None:
-            amountToReflect = round(attackInfo.damage * 0.5)
-            attackInfo.attacker.Damage(AttInfo(amountToReflect, self))
-            print(f"{Fore.RED}{self.name} reflected {amountToReflect} damage back at {attackInfo.attacker.name}!{Fore.RESET}")
-        return True
+    def __init__(self):
+        super().__init__()
+        self.thorns = 0.5
     
 class TransformOnDeathEnemy(BasicEnemy):
     def __init__(self, transformIndex: int, flavorText: str = "", amountToSpawn: int | range = 1):
@@ -412,9 +424,15 @@ class Player(AEntity):
         return super().Heal(amount)
 
     def Damage(self, attackInfo: AttInfo):
+        from ElementTags import ElementTag
         if (gc.godmode):
             print(f"Godly power has blocked {attackInfo.damage} damage.")
             return
+        
+        verdantCrestCount = self.GetRelicCount(Relics.VerdantCrest)
+        if verdantCrestCount > 0 and attackInfo.HasElement(ElementTag.FIRE):
+            attackInfo.damage += round(attackInfo.damage * (Relics.VerdantCrest.FIRE_WEAKNESS_PERCENT * verdantCrestCount))
+
         return super().Damage(attackInfo)
     
     def GiveGold(self, amount: int):
@@ -452,4 +470,19 @@ class Player(AEntity):
         bloodOathCount = self.GetRelicCount(Relics.BloodOathPendant)
         if bloodOathCount > 0:
             self.Damage(AttInfo(Relics.BloodOathPendant.HEALTH_LOST_PER_TURN * bloodOathCount))
+
+        if self.HasRelic(Relics.VerdantCrest):
+            heal_amount = Relics.VerdantCrest.HEALTH_REGEN_PER_TURN
+            self.Heal(heal_amount)
+            print(f"{Fore.GREEN}The Verdant Crest heals {self.name} for {heal_amount} HP!{Fore.RESET}")
+
         return super().DoTurn()
+    
+    def get_additionalRawDamage(self) -> int:
+        additional = super().get_additionalRawDamage()
+
+        hasBloodOiledChain = self.HasRelic(Relics.BloodOiledChain)
+        if hasBloodOiledChain:
+            additional += Relics.bloodOiledChainBonusDamagePerAttack
+
+        return additional

@@ -241,10 +241,6 @@ class StealAndAttackAction(AttackAction):
 
     def PerformAction(self):
         from colorama import Fore, Style
-        from ItemSystem import AItem
-        stolenItem: AItem | None = None
-        if random.random() < self.stealItemChance:
-            stolenItem = gc.playerCharacter.items[random.randrange(0, len(gc.playerCharacter.items))]
         goldTaken = gc.playerCharacter.TakeGold(random.randrange(self.stealGoldRange.start, self.stealGoldRange.stop))
 
         if goldTaken > 0:

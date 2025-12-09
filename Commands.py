@@ -277,11 +277,13 @@ def c_status():
     print("Gold: " + str(gc.playerCharacter.GetGold()))
     print(f"Evasion: {gc.playerCharacter.GetEvasion() * 100}%")
     print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
+    print(f"Additional Raw Damage: {gc.playerCharacter.additionalRawDamage}")
     print(f"Damage Multiplier: {round(gc.playerCharacter.outgoingDamageMultiplier * 100, 2)}%")
     print(f"Gold Multiplier: {round(gc.goldMultiplier * 100, 2)}%")
     print(f"Experience Multiplier: {round(gc.experienceMultiplier * 100, 2)}%")
     print(f"Loot Multiplier: {round((gc.additionalLootChance + 1) * 100, 2)}%")
     print(f"Damage Resistance: {round(gc.playerCharacter.GetDamageResist() * 100, 2)}%")
+    print(f"Thorns: {round(gc.playerCharacter.thorns * 100, 2)}%")
 
     effectsText = gc.playerCharacter.GetEffectListText()
     if effectsText != None:

@@ -19,7 +19,7 @@ __enemy_pool__ = [
     #Entity.BasicEnemy().SetName("Hollowed Prophet").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2,4)),
     Entity.BasicEnemy().SetName("Mourning Shade").SetMaxHealth(50, setHealthToo=True).SetDropExp(range(3,6)).AttachActionSet(ActionSets.mourning_shade_action_set),
     #Entity.BasicEnemy().SetName("Cultist"),
-    #Entity.BasicEnemy().SetName("Ironclad Marshall"),
+    #Entity.BasicEnemy().SetName("Ironclad Marshal"),
     #Entity.BasicEnemy().SetName("Slime"),
     #Entity.BasicEnemy().SetName("Vampire Spawn"),
     Entity.BasicEnemy().SetName("Bandit").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.bandit_action_set)

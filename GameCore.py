@@ -175,6 +175,8 @@ def GenerateReward(Commands):
 def GiveRelicReward(Commands):
     import Relics
     relicReward = Relics.GetRandomRelic()
+    if relicReward == None:
+        return
     if (Commands.PromptYesNoQuestion(f"As a reward for your victory, you find a {Style.BRIGHT}{Fore.CYAN}{relicReward.name}{Style.RESET_ALL}. Do you want to keep it?", True)):
         playerCharacter.GiveRelic(relicReward)
 
@@ -205,6 +207,7 @@ def OnCombatStart():
 
     isFirstTurn = True
     playerHasAttackedThisTurn = False
+    Relics.bloodOiledChainBonusDamagePerAttack = 0
 
     if playerCharacter.HasRelic(Relics.TimewornHourglass):
         playerCharacter.shield += Relics.TimewornHourglass.SHIELD_AMOUNT

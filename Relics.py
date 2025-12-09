@@ -256,6 +256,48 @@ class RendingClaw(ARelic):
         import GameCore as gc
         gc.playerCharacter.applyBleedChance += RendingClaw.BLEED_CHANCE
 
+class ThornbackTortoiseShell(ARelic):
+    ADDITIONAL_THORNS = 0.15
+    def __init__(self):
+        self.name = "Thornback Tortoise Shell"
+        self.description = f"+{int(ThornbackTortoiseShell.ADDITIONAL_THORNS * 100)}% thorns damage."
+
+    def OnAcquire(self):
+        import GameCore as gc
+        gc.playerCharacter.thorns += ThornbackTortoiseShell.ADDITIONAL_THORNS
+
+class WardensBulwark(ARelic):
+    DAMAGE_THRESHOLD = 0.25
+    GRANTED_DEFENSE = 10
+    def __init__(self):
+        super().__init__()
+        self.name = "Warden's Bulwark"
+        self.description = f"Taking more than {WardensBulwark.DAMAGE_THRESHOLD} damage in a single hit grants +{WardensBulwark.GRANTED_DEFENSE} Defense next turn."
+
+class BloodOiledChain(ARelic):
+    BONUS_DAMAGE = 1
+    def __init__(self):
+        super().__init__()
+        self.name = "Blood-Oiled Chain"
+        self.description = f"Each time you attack, gain +{BloodOiledChain.BONUS_DAMAGE} Damage permanently for the encounter."
+bloodOiledChainBonusDamagePerAttack = 0
+        
+class SmolderingCore(ARelic):
+    START_BATTLE_FIRE_DAMAGE_TO_ALL = 5
+    SPREADING_FIRE_DAMAGE_ON_KILL = 10
+    def __init__(self):
+        super().__init__()
+        self.name = "Smoldering Core"
+        self.description = f"At the start of each battle, deal {SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL} fire damage to all enemies. Killing an enemy deals {SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL} more fire damage to all remaining ones."
+
+class VerdantCrest(ARelic):
+    HEALTH_REGEN_PER_TURN = 5
+    FIRE_WEAKNESS_PERCENT = 0.10
+    def __init__(self):
+        super().__init__()
+        self.name = "Verdant Crest"
+        self.description = f"Regenerate {VerdantCrest.HEALTH_REGEN_PER_TURN} health at the start of each turn. Weak to fire (you take +{int(VerdantCrest.FIRE_WEAKNESS_PERCENT * 100)}% fire damage)."
+
 """
 class KeystoneIdol(ARelic):
     def __init__(self):
@@ -266,9 +308,9 @@ class KeystoneIdol(ARelic):
 """
 
 def GetRelicByName(name: str) -> ARelic | None:
-    for relic in relicsList:
+    for i, relic in enumerate(relicsList):
         if relic.name == name:
-            return relic
+            return GetRelicByIndex(i)
     print("Unknown relic: \"" + name + "\"")
     return None
 
@@ -277,10 +319,10 @@ def GetRelicByIndex(index: int) -> ARelic | None:
         return None
     return relicsList[index]
 
-def GetRandomRelic() -> ARelic:
+def GetRandomRelic() -> ARelic | None:
     import random
     rand = random.randint(0, len(relicsList) - 1)
-    return relicsList[rand]
+    return GetRelicByIndex(rand)
 
 def GenerateRelics(cls) -> list[ARelic]:
     result = []
