@@ -206,17 +206,20 @@ def OnCombatStart():
     global playerCharacter
     global playerHasAttackedThisTurn
     global enemiesInScene
+    global currentTurn
 
     isFirstTurn = True
+    currentTurn = 1
     playerHasAttackedThisTurn = False
     Relics.bloodOiledChainBonusDamagePerAttack = 0
+    playerCharacter.bonusAttacks = 0
 
     if playerCharacter.HasRelic(Relics.TimewornHourglass):
         playerCharacter.shield += Relics.TimewornHourglass.SHIELD_AMOUNT
         print(f"{Fore.CYAN}Your {Style.BRIGHT}Timeworn Hourglass{Style.NORMAL} grants you a shield that absorbs {Relics.TimewornHourglass.SHIELD_AMOUNT} damage!{Style.RESET_ALL}")
 
     if playerCharacter.HasRelic(Relics.XenolithFragment):
-        buff = StatusEffect.GetRandomEffect(positive=True)
+        buff = StatusEffect.GetRandomEffect(negative=False, positive=True)
         StatusEffect.Apply(playerCharacter, buff, random.randint(1, 5))
 
     if playerCharacter.HasRelic(Relics.Dreamcatcher):
@@ -228,7 +231,13 @@ def OnCombatStart():
 
     smolderingCoreCount = playerCharacter.GetRelicCount(Relics.SmolderingCore)
     if smolderingCoreCount > 0:
-        Relics.SmolderingCore.TriggerEffect(Relics.SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL * smolderingCoreCount)
+        Relics.TriggerSmolderingCore(Relics.SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL * smolderingCoreCount)
+
+    if playerCharacter.HasRelic(Relics.PhylacteryShard):
+        negativeEffect = playerCharacter.GetRandomNegativeStatusEffect()
+        if negativeEffect is not None:
+            playerCharacter.RemoveEffect(negativeEffect)
+            print(f"{Fore.CYAN}Your {Style.BRIGHT}Phylactery Shard{Style.NORMAL} removes {negativeEffect.GetName()}{Fore.CYAN} from you!{Style.RESET_ALL}")
 
 
 def EndPlayerTurn():
@@ -240,15 +249,24 @@ def EndPlayerTurn():
     pass
 
 def OnPlayerTurnStart():
+    from time import sleep
     global playerCharacter
     global playerHasAttackedThisTurn
     global playerHasAttackedLastTurn
+    global currentTurn
 
     print("\nNew turn!")
+    currentTurn += 1
     playerCharacter.stamina = playerCharacter.maxStamina
     playerCharacter.DoTurn()
     playerHasAttackedLastTurn = playerHasAttackedThisTurn
     playerHasAttackedThisTurn = False
+
+    if playerCharacter.stunCount > 0:
+        playerCharacter.stunCount -= 1
+        print(f"{Fore.MAGENTA}You are stunned and cannot act this turn!{Style.RESET_ALL}")
+        sleep(2)
+        EndPlayerTurn()
 
 def ProcessEnemyTurn():
     global enemiesInScene
@@ -270,6 +288,11 @@ def ProcessEnemyTurn():
                 print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.NORMAL}{Fore.MAGENTA} is unable to act this turn!{Style.RESET_ALL}")
                 time.sleep(0.2)
                 continue
+        if enemy.stunCount > 0:
+            enemy.stunCount -= 1
+            print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.NORMAL}{Fore.MAGENTA} is stunned and cannot act this turn!{Style.RESET_ALL}")
+            time.sleep(0.2)
+            continue
         enemy.DoTurn()
         time.sleep(0.2)
     CheckEncounterStatus()
@@ -316,5 +339,6 @@ playerHasAttackedLastTurn = False
 goldMultiplier = 1.0
 additionalLootChance = 0.0
 isFirstTurn = True
+currentTurn = 1
 experienceMultiplier = 1.0
 waitingLevelUpRewards = 0

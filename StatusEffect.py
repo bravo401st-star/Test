@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from colorama import Fore, Style
 from Entity import AEntity, Player
@@ -58,12 +59,14 @@ def Apply(entity, effectType: type, stacks: int = 1) -> bool:
     effect.OnEffectApply()
     return True
 
-def GetRandomEffect(positive: bool = False) -> type:
+def GetRandomEffect(negative: bool = True, positive: bool = True) -> type:
     import random
     import Relics
     effectsList: list[type] = []
     for effect in AEffect.__subclasses__():
-        if not effect.positive and positive:
+        if effect.positive and not positive:
+            continue
+        if not effect.positive and not negative:
             continue
         effectsList.append(effect)
     
@@ -230,6 +233,7 @@ class Weakness(AEffect):
         return f"{Fore.YELLOW}{Style.DIM}Weakness{Style.NORMAL}{Fore.RESET}"
 
 class BerserkEffect(AEffect):
+    positive: bool = True
     DAMAGE_MULT: float = 0.50
     WEAKNESS_STACKS_ON_EXPIRE: int = 2
 

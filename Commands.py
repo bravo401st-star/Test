@@ -278,6 +278,7 @@ def c_status():
     print(f"Evasion: {gc.playerCharacter.GetEvasion() * 100}%")
     print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
     print(f"Additional Raw Damage: {gc.playerCharacter.additionalRawDamage}")
+    print(f"Critical Hit Damage Multiplier: {round(gc.playerCharacter.criticalHitMultiplier * 100, 2)}%")
     print(f"Damage Multiplier: {round(gc.playerCharacter.outgoingDamageMultiplier * 100, 2)}%")
     print(f"Gold Multiplier: {round(gc.goldMultiplier * 100, 2)}%")
     print(f"Experience Multiplier: {round(gc.experienceMultiplier * 100, 2)}%")
@@ -315,7 +316,8 @@ def PrintOutEntityList():
 
         # Handle effects text
         effectsText = enemy.GetEffectListText()
-
+        if enemy.stunCount > 0:
+            actionText = f" {Fore.MAGENTA}{Style.BRIGHT}[STUNNED]{Style.RESET_ALL}"
 
         print(f"{index}: {enemy.name} [HP: {enemy.health}{enemy.GetShieldText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
@@ -420,7 +422,8 @@ def PrintOutInventory():
         useableFlag = issubclass(type(item), ItemSystem.TargetUseableItem)
         text = ""
         if useableFlag:
-            text += Back.RED if gc.playerCharacter.stamina < item.useCost else ""
+            backFill = Back.CYAN if (gc.playerCharacter.bonusAttacks > 0 and issubclass(type(item), ItemSystem.Weapon)) else Back.RED
+            text += backFill if gc.playerCharacter.stamina < item.useCost else ""
         text += str(index) + ": " + "[" + item.tag.upper() + "] " + item.GetDesc()
         if (useableFlag and item.useCount > 0):
             text += " [" + str(item.useCount) + " Uses]"

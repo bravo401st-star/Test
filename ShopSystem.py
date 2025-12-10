@@ -80,9 +80,9 @@ class Shop:
 
         # List out items in inventory
         for index, item in enumerate(levelableItems):
-            cost = int(item.GetGoldCost() * self.discount) * item.itemLevel
+            cost = int(item.GetGoldCost() * self.discount) * item.itemLevel # type: ignore
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
-            print(f"{index + 1}. {priceTag} {item.GetDesc()}")
+            print(f"{index + 1}. {priceTag} {item.GetDesc()}") # type: ignore
 
         if len(levelableItems) <= 0:
             print(f"No upgradable items!")
@@ -97,10 +97,10 @@ class Shop:
                 return
             if choiceIndex < len(levelableItems):
                 itemToBuy: ItemSystem.LevelableItem = levelableItems[choiceIndex]
-                cost = int(itemToBuy.GetGoldCost() * self.discount) * itemToBuy.itemLevel
+                cost = int(itemToBuy.GetGoldCost() * self.discount) * itemToBuy.itemLevel # type: ignore
                 if gc.playerCharacter.SpendGold(cost):
                     itemToBuy.Upgrade()
-                    print(f"{itemToBuy.name} has been upgraded to level {itemToBuy.itemLevel}!")
+                    print(f"{itemToBuy.name} has been upgraded to level {itemToBuy.itemLevel}!") # type: ignore
             else:
                 print("Invalid item selection.")
         

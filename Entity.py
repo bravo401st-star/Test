@@ -19,16 +19,24 @@ class AEntity(ABC):
         self.level = 1
         self.maxHealth = self.health
         self._additionalRawDamage = 0
-        self.outgoingDamageMultiplier = 1.0
+        self._outgoingDamageMultiplier = 1.0
         self.effects: list[AEffect] = []
         self.evasion = 0.0
         self.damageResistance = 0.0
         self.shield = 0
         self.lifesteal = 0.0
         self.thorns = 0.0
+        self.stunCount = 0
 
     def OnSpawn(self):
         pass
+
+    def GetHealthPercent(self) -> float:
+        return self.health / self.maxHealth
+
+    def ApplyStun(self, count: int):
+        self.stunCount += count
+        print(f"{Fore.YELLOW}{Style.DIM}{self.name} is stunned for {self.stunCount} turn{'s' if self.stunCount > 1 else ''}!{Style.RESET_ALL}")
 
     def GetAdditionalDesc(self) -> str:
         string = str()
@@ -167,9 +175,26 @@ class AEntity(ABC):
             effectList += f"{effect.GetName()} ({effect.stacks}), "
 
         return effectList[:-2] + "]"
+    
+    def GetRandomNegativeStatusEffect(self):
+        from StatusEffect import AEffect
+        negativeEffects: list[AEffect] = []
+        for effect in self.effects:
+            if not effect.positive:
+                negativeEffects.append(effect)
+        if len(negativeEffects) <= 0:
+            return None
+        return random.choice(negativeEffects)
+    
+    def get_outgoingDamageMultiplier(self) -> float:
+        return self._outgoingDamageMultiplier
+    
+    def set_outgoingDamageMultiplier(self, value: float):
+        self._outgoingDamageMultiplier = value
         
     # properties
     additionalRawDamage = property(get_additionalRawDamage, set_additionalRawDamage)
+    outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, set_outgoingDamageMultiplier)
 
 
 e_EntityDeath = EventSystem.Event(AEntity)
@@ -201,6 +226,7 @@ class BasicEnemy(AEntity):
     def Kill(self):
         import Relics
         import Commands
+        import StatusEffect
         if self.exp == 0:
             return super().Kill()
         toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
@@ -223,7 +249,25 @@ class BasicEnemy(AEntity):
 
         smolderingCoreCount = gc.playerCharacter.GetRelicCount(Relics.SmolderingCore)
         if smolderingCoreCount > 0:
-            Relics.SmolderingCore.TriggerEffect(Relics.SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL * smolderingCoreCount)
+            Relics.TriggerSmolderingCore(Relics.SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL * smolderingCoreCount)
+
+        graveDustLedgerCount = gc.playerCharacter.GetRelicCount(Relics.GravedustLedger)
+        if graveDustLedgerCount > 0:
+            gc.playerCharacter.bonusAttacks += Relics.GravedustLedger.BONUS_ATTACKS_PER_KILL * graveDustLedgerCount
+            print(f"{Fore.CYAN}Your {Style.BRIGHT}Gravedust Ledger{Style.RESET_ALL}{Fore.CYAN} has granted you {Relics.GravedustLedger.BONUS_ATTACKS_PER_KILL * graveDustLedgerCount} bonus attack{'s' if Relics.GravedustLedger.BONUS_ATTACKS_PER_KILL * graveDustLedgerCount > 1 else ''}!{Style.RESET_ALL}")
+        
+        if gc.playerCharacter.HasRelic(Relics.ContagionVial):
+            # check if enemy has any effects that can be spread
+            for effect in self.effects:
+                if Relics.ContagionVial.IsRelevantEffect(effect):
+                    enemyList = copy.copy(gc.enemiesInScene)
+                    enemyList.remove(self)
+                    if len(enemyList) == 0:
+                        continue
+                    unluckyEnemy = random.choice(enemyList)
+                    StatusEffect.Apply(unluckyEnemy, type(effect), effect.stacks)
+                    print(f"{Fore.GREEN}The {Style.BRIGHT}Contagion Vial{Style.NORMAL} has spread {effect.GetName()} to {unluckyEnemy.name}!{Style.RESET_ALL}")
+
         return super().Kill()
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -361,8 +405,10 @@ class Player(AEntity):
         self.level = LevelHandler.LevelHandler()
         self.gold = 0
         self.relics: list[Relics.ARelic] = []
-        self.critialHitChance = 0.05 # 5% base crit chance
-        self.applyBleedChance = 0.0
+        self.critialHitChance: float = 0.05 # 5% base crit chance
+        self.criticalHitMultiplier: float = 2.0
+        self.applyBleedChance: float = 0.0
+        self.bonusAttacks: int = 0
 
     def GiveRelic(self, relic: Relics.ARelic | None):
         if relic is None:
@@ -471,7 +517,7 @@ class Player(AEntity):
         return super().Kill()
     
     def OnEvade(self, attackInfo):
-        if self.HasRelic(Relics.PhantomSigil):
+        if self.HasRelic(Relics.PhantomSigil) and attackInfo.attacker is not None:
             attackInfo.attacker.Damage(AttInfo(Relics.PhantomSigil.DAMAGE_REFLECT))
         return super().OnEvade(attackInfo)
 
@@ -511,4 +557,19 @@ class Player(AEntity):
 
         return additional
     
+    def get_outgoingDamageMultiplier(self) -> float:
+        mult = super().get_outgoingDamageMultiplier()
+
+        golemCoreCount = self.GetRelicCount(Relics.GolemCore)
+        if golemCoreCount > 0 and gc.currentTurn % Relics.GolemCore.TURN_THRESHOLD == 0:
+            mult += Relics.GolemCore.DAMAGE_MULT * golemCoreCount
+
+        if self.GetHealthPercent() < Relics.HeartofZurhatch.HEALTH_THRESHOLD:
+            heartOfZurhatchCount = self.GetRelicCount(Relics.HeartofZurhatch)
+            if heartOfZurhatchCount > 0:
+                mult += Relics.HeartofZurhatch.ADDITIONAL_DAMAGE * heartOfZurhatchCount
+
+        return mult
+    
     additionalRawDamage = property(get_additionalRawDamage, AEntity.set_additionalRawDamage)
+    outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, AEntity.set_outgoingDamageMultiplier)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 
 class ARelic(ABC):
@@ -267,7 +268,7 @@ class ThornbackTortoiseShell(ARelic):
         gc.playerCharacter.thorns += ThornbackTortoiseShell.ADDITIONAL_THORNS
 
 class WardensBulwark(ARelic):
-    DAMAGE_THRESHOLD = 20
+    DAMAGE_THRESHOLD = 15
     GRANTED_DEFENSE = 10
     def __init__(self):
         super().__init__()
@@ -291,14 +292,14 @@ class SmolderingCore(ARelic):
         self.name = "Smoldering Core"
         self.description = f"At the start of each battle, deal {SmolderingCore.START_BATTLE_FIRE_DAMAGE_TO_ALL} fire damage to all enemies. Killing an enemy deals {SmolderingCore.SPREADING_FIRE_DAMAGE_ON_KILL} fire damage to all remaining ones."
 
-    def TriggerEffect(damage: int):
-        from AttackInfo import AttInfo
-        import GameCore as gc
-        from ElementTags import ElementTag
-        from colorama import Fore, Style
-        print(f"{Fore.CYAN}Your {Style.BRIGHT}Smoldering Core{Style.NORMAL} glows bright and ignites all enemies for {damage} damage!{Style.RESET_ALL}")
-        for enemy in gc.enemiesInScene:
-            enemy.Damage(AttInfo(damage).AddElements(ElementTag.FIRE))
+def TriggerSmolderingCore(damage: int):
+    from AttackInfo import AttInfo
+    import GameCore as gc
+    from ElementTags import ElementTag
+    from colorama import Fore, Style
+    print(f"{Fore.CYAN}Your {Style.BRIGHT}Smoldering Core{Style.NORMAL} glows bright and ignites all enemies for {damage} damage!{Style.RESET_ALL}")
+    for enemy in gc.enemiesInScene:
+        enemy.Damage(AttInfo(damage).AddElements(ElementTag.FIRE))
 
 class VerdantCrest(ARelic):
     HEALTH_REGEN_PER_TURN = 5
@@ -307,6 +308,101 @@ class VerdantCrest(ARelic):
         super().__init__()
         self.name = "Verdant Crest"
         self.description = f"Regenerate {VerdantCrest.HEALTH_REGEN_PER_TURN} health at the start of each turn. Weak to fire (you take +{int(VerdantCrest.FIRE_WEAKNESS_PERCENT * 100)}% fire damage)."
+
+class LunarShard(ARelic):
+    ADDITIONAL_CRIT_DAMAGE = 0.25
+    def __init__(self):
+        super().__init__()
+        self.name = "Lunar Shard"
+        self.description = f"Critical hits deal +{int(LunarShard.ADDITIONAL_CRIT_DAMAGE * 100)}% damage."
+
+    def OnAcquire(self):
+        import GameCore as gc
+        gc.playerCharacter.criticalHitMultiplier += LunarShard.ADDITIONAL_CRIT_DAMAGE
+
+class ThunderousHeart(ARelic):
+    CHANCE_TO_STUN = 0.05
+    def __init__(self):
+        super().__init__()
+        self.name = "Thunderous Heart"
+        self.description = f"Your attacks have a {int(ThunderousHeart.CHANCE_TO_STUN * 100)}% chance to stun the enemy for one turn."
+
+class GlitteringAmulet(ARelic):
+    CHANCE_TO_APPLY_DEBUFF = 0.10
+    def __init__(self):
+        super().__init__()
+        self.name = "Glittering Amulet"
+        self.description = f"Your attacks have a {int(GlitteringAmulet.CHANCE_TO_APPLY_DEBUFF * 100)}% chance to apply a random debuff to the enemy."
+
+class GolemCore(ARelic):
+    TURN_THRESHOLD = 3
+    DAMAGE_MULT = 0.20
+    def __init__(self):
+        super().__init__()
+        self.name = "Golem Core"
+        self.description = f"Every {GolemCore.TURN_THRESHOLD} turns, gain +{int(GolemCore.DAMAGE_MULT * 100)}% damage on that turn."
+
+class PhylacteryShard(ARelic):
+    def __init__(self):
+        super().__init__()
+        self.name = "Phylactery Shard"
+        self.description = f"At the start of combat, automatically cleanse a debuff."
+
+class GravedustLedger(ARelic):
+    BONUS_ATTACKS_PER_KILL: int = 1
+    def __init__(self):
+        super().__init__()
+        self.name = "Gravedust Ledger"
+        self.description = f"Each time you kill an enemy, gain +{GravedustLedger.BONUS_ATTACKS_PER_KILL} temporary attack for that combat."
+
+class HeartofZurhatch(ARelic):
+    HEALTH_THRESHOLD = 0.40
+    ADDITIONAL_DAMAGE = 0.30
+    def __init__(self):
+        super().__init__()
+        self.name = "Heart of Zurhatch"
+        self.description = f"When below {int(HeartofZurhatch.HEALTH_THRESHOLD * 100)}% HP, damage increased by +{int(HeartofZurhatch.ADDITIONAL_DAMAGE * 100)}%."
+
+class ContagionVial(ARelic):
+    BLEED_AMOUNT: int = 8
+    _RELEVANT_EFFECTS: list[type] | None = None
+    _description_cached: str | None = None
+    
+    def __init__(self):
+        self.name = "Contagion Vial"
+
+    @property
+    def description(self) -> str:
+        from colorama import Fore
+        if ContagionVial._description_cached is None:
+            ContagionVial._description_cached = f"When an enemy dies while afflicted with {self.GetListOfRelevantEffects()}, spread it to another enemy."
+        return ContagionVial._description_cached
+    
+    @description.setter
+    def description(self, value: str) -> None:
+        ContagionVial._description_cached = value
+
+    @classmethod
+    def GetRelevantEffects(cls) -> list[type]:
+        if cls._RELEVANT_EFFECTS is None:
+            import sys
+            # Use already-loaded StatusEffect if available, avoid circular import
+            if 'StatusEffect' in sys.modules:
+                StatusEffect = sys.modules['StatusEffect']
+                cls._RELEVANT_EFFECTS = [StatusEffect.BleedEffect, StatusEffect.PoisonEffect]
+            else:
+                # Fallback: return empty list if StatusEffect hasn't loaded yet
+                cls._RELEVANT_EFFECTS = []
+        return cls._RELEVANT_EFFECTS
+
+    def GetListOfRelevantEffects(self) -> str:
+        string = str()
+        effects = ContagionVial.GetRelevantEffects()
+        for i, effect in enumerate(effects):
+            tempEffect = effect(None)
+            string += tempEffect.GetName() + ("/" if i != len(effects) - 1 else "")
+
+        return string
 
 """
 class KeystoneIdol(ARelic):
@@ -318,6 +414,7 @@ class KeystoneIdol(ARelic):
 """
 
 def GetRelicByName(name: str) -> ARelic | None:
+    relicsList = GetRelicsList()
     for i, relic in enumerate(relicsList):
         if relic.name == name:
             return GetRelicByIndex(i)
@@ -325,12 +422,14 @@ def GetRelicByName(name: str) -> ARelic | None:
     return None
 
 def GetRelicByIndex(index: int) -> ARelic | None:
+    relicsList = GetRelicsList()
     if (index >= len(relicsList) or index < 0):
         return None
     return relicsList[index]
 
 def GetRandomRelic() -> ARelic | None:
     import random
+    relicsList = GetRelicsList()
     rand = random.randint(0, len(relicsList) - 1)
     return GetRelicByIndex(rand)
 
@@ -341,4 +440,21 @@ def GenerateRelics(cls) -> list[ARelic]:
         result.extend(GenerateRelics(subclass))
     return result
 
-relicsList: list[ARelic] = GenerateRelics(ARelic)
+# Lazy-initialized relic list to avoid circular imports
+_relicsList: list[ARelic] | None = None
+
+def _InitRelicsList() -> None:
+    global _relicsList
+    if _relicsList is None:
+        _relicsList = GenerateRelics(ARelic)
+
+def GetRelicsList() -> list[ARelic]:
+    """Get the initialized relic list, initializing if needed."""
+    _InitRelicsList()
+    return _relicsList or []
+
+# For backward compatibility, provide 'relicsList' as a property-like accessor
+def __getattr__(name):
+    if name == "relicsList":
+        return GetRelicsList()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

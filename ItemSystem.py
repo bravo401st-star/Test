@@ -69,7 +69,7 @@ class UseableItem(AItem):
         if not self.CheckCanUse():
             return False
         
-        gc.playerCharacter.stamina -= self.useCost
+        self.ConsumeStamina()
         print(f"Using {self.name}")
         
         if (self.useCount > 0):
@@ -79,6 +79,9 @@ class UseableItem(AItem):
 
         self.OnUse()
         return True
+
+    def ConsumeStamina(self):
+        gc.playerCharacter.stamina = max(gc.playerCharacter.stamina - self.useCost, 0)
 
     def CheckCanUse(self) -> bool:
         stamina = gc.playerCharacter.stamina
@@ -123,7 +126,7 @@ class TargetUseableItem(UseableItem):
         if not self.CheckCanUse():
             return False
         
-        gc.playerCharacter.stamina -= self.useCost
+        self.ConsumeStamina()
         print("Using " + self.name + " on " + target.name)
         
         if (self.useCount > 0):
@@ -149,7 +152,7 @@ class Weapon(TargetUseableItem, LevelableItem):
         LevelableItem.__init__(self)
         self.baseDamage = 1
         self.critChance = 0.0
-        self.critDamageMult = 2.0
+        self.critDamageMult = 1.0
         self.elementType: ElementTag | None = None
 
     def GetDesc(self):
@@ -174,7 +177,7 @@ class Weapon(TargetUseableItem, LevelableItem):
 
         if isCrit:
             print(Fore.RED + Style.BRIGHT + "Critical Hit!" + Style.RESET_ALL)
-            attackInfo.damage = round(attackInfo.damage * self.critDamageMult)
+            attackInfo.damage = round(attackInfo.damage * (gc.playerCharacter.criticalHitMultiplier * self.critDamageMult))
             if (gc.playerCharacter.HasRelic(Relics.FangoftheRaven)):
                 StatusEffect.Apply(target, StatusEffect.BleedEffect, Relics.FangoftheRaven.BLEED_AMOUNT)
         
@@ -185,7 +188,21 @@ class Weapon(TargetUseableItem, LevelableItem):
         bloodOiledChainCount = gc.playerCharacter.GetRelicCount(Relics.BloodOiledChain)
         if bloodOiledChainCount > 0:
             Relics.bloodOiledChainBonusDamagePerAttack += Relics.BloodOiledChain.BONUS_DAMAGE * bloodOiledChainCount
+
+        if gc.playerCharacter.HasRelic(Relics.ThunderousHeart) and random.random() < Relics.ThunderousHeart.CHANCE_TO_STUN:
+            target.ApplyStun(1)
+
+        if gc.playerCharacter.HasRelic(Relics.GlitteringAmulet) and random.random() < Relics.GlitteringAmulet.CHANCE_TO_APPLY_DEBUFF:
+            StatusEffect.Apply(target, StatusEffect.GetRandomEffect(negative=True, positive=False), 1)
         
+    def CheckCanUse(self) -> bool:
+        return super().CheckCanUse() or gc.playerCharacter.bonusAttacks > 0
+    
+    def ConsumeStamina(self):
+        if gc.playerCharacter.bonusAttacks > 0:
+            gc.playerCharacter.bonusAttacks -= 1
+            return
+        super().ConsumeStamina()
 
     def SetDamage(self, damage: int):
         self.baseDamage = damage
@@ -453,7 +470,7 @@ itemsList = [
     Weapon().SetName("Lightning Axe").SetRarity(9).SetUseCost(3).SetDamage(40).SetElement(ElementTag.LIGHTNING),
     
     # === SNIPER WEAPONS ===
-    SniperWeapon().SetName("Sniper Bow").SetRarity(7).SetUseCost(2).SetDamage(48).SetCritDamageMultiplier(3.0),
+    SniperWeapon().SetName("Sniper Bow").SetRarity(7).SetUseCost(2).SetDamage(48).SetCritDamageMultiplier(1.5),
 
     # === BASIC POTIONS ===
     HealthPotion().SetName("Lesser Health Potion").SetRarity(85).SetUseCost(1).SetUses(3).SetHealing(15),
