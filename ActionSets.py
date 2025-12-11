@@ -1,5 +1,6 @@
 import Actions as AP
 import StatusEffect
+from colorama import Fore
 
 goblin_action_set = AP.ActionSet()
 goblin_action_set.AppendAction(AP.AttackAction(10).SetName("Slash").SetShortDesc("Preparing to slash"))
@@ -35,7 +36,7 @@ bog_skeleton_action_set = AP.ActionSet()
 bog_skeleton_action_set.AppendAction(AP.AttackAction(15).SetName("Slash").SetShortDesc("Preparing to slash").SetEffectsOnHit(StatusEffect.BoggedEffect, StatusEffect.BoggedEffect))
 
 boggy_pile_action_set = AP.ActionSet()
-boggy_pile_action_set.AppendAction(AP.NothingAction().SetName("Shaking").SetShortDesc("Suspicous shaking...").SetRepeat(range(3)))
+boggy_pile_action_set.AppendAction(AP.NothingAction().SetName("Shaking").SetShortDesc("Suspicous shaking...").SetRepeat(range(3)).SetColor(Fore.WHITE))
 boggy_pile_action_set.AppendAction(AP.TransformAction(6).SetName("Transform").SetShortDesc("Transforming into "))
 
 wraith_action_set = AP.ActionSet()
@@ -66,3 +67,18 @@ bandit_action_set = AP.ActionSet()
 bandit_action_set.AppendAction(AP.StealAndAttackAction(12, range(5,20)).SetName("Mug").SetShortDesc("Preparing to mug and stab"))
 bandit_action_set.AppendAction(AP.TauntAction("Heh heh easy money boys!").SetName("Taunt").SetShortDesc("Preparing to taunt").SetChance(0.1))
 bandit_action_set.AppendAction(AP.EscapeAction("Ha ha! Sucker!").SetName("Escape").SetShortDesc("Preparing to escape...").SetChance(0.2))
+
+thornback_action_set = AP.ActionSet()
+thornback_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.ThornedEffect, 10).SetName("Shellcurl").SetShortDesc("Preparing to curl up in shell").SetRepeat(range(4)))
+thornback_action_set.AppendAction(AP.NothingAction().SetName("Nothing").SetShortDesc("Moving very slowly...").SetRepeat(range(2)))
+thornback_action_set.AppendAction(AP.DamageBasedOnThornsAction(2).SetName("Spineburst").SetShortDesc("Preparing to burst spines"))
+thornback_action_set.AppendAction(AP.ProtectAction(15).SetName("Shield").SetShortDesc("Preparing to shield").SetRepeat(range(2)))
+
+carrion_maggot_action_set = AP.ActionSet()
+carrion_maggot_action_set.AppendAction(AP.TotallyHarmlessWiggleAction().SetName("Wiggle").SetShortDesc("Wiggling, seems harmless...").SetColor(Fore.WHITE).SetRepeat(range(5, 7)))
+carrion_maggot_action_set.AppendAction(AP.TransformAction(16).SetName("Transform").SetShortDesc("Transforming into "))
+
+carrion_horror_action_set = AP.ActionSet()
+carrion_horror_action_set.AppendAction(AP.AttackAction(30).SetName("Devour").SetShortDesc("Preparing to devour").SetAttackCount(3).SetEffectsOnHit(StatusEffect.InfectionEffect, StatusEffect.PoisonEffect))
+carrion_horror_action_set.AppendAction(AP.AttackAction(2).SetName("RendingFlurry").SetShortDesc("Preparing to rend").SetAttackCount(15).SetEffectsOnHit(StatusEffect.InfectionEffect).SetRepeat(range(3)))
+carrion_horror_action_set.AppendAction(AP.SummonAction(15, 3).SetName("Spawn").SetShortDesc("Preparing to spawn").SetChance(0.3))

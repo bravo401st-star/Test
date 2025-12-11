@@ -48,15 +48,8 @@ def Apply(entity, effectType: type, stacks: int = 1) -> bool:
     if not effect.positive and entity.HasEffect(BlessedEffect):
         print(f"A blessing has blocked a negative effect on {entity.name}!")
         return False
-
-    for eff in entity.effects:
-        if type(eff) is effectType:
-            # effect already exists on entity
-            eff.AddStack(effect.stacks)
-            return True
-        
-    entity.effects.append(effect)
-    effect.OnEffectApply()
+    
+    entity.OnEffectApply(effect)
     return True
 
 def GetRandomEffect(negative: bool = True, positive: bool = True) -> type:
@@ -184,6 +177,33 @@ class PhaseShifted(AEffect):
     def GetName(self):
         return f"{Fore.MAGENTA}{Style.BRIGHT}Phase Shifted{Style.NORMAL}{Fore.RESET}"
     
+class ThornedEffect(AEffect):
+    positive: bool = True
+
+    def OnEffectApply(self):
+        self.attachedEntity.thorns += self.stacks
+        self._added_thorns = self.stacks
+        print(f"{self.attachedEntity.name} feels thorny!")
+        return super().OnEffectApply()
+    
+    def OnEffectTick(self):
+        self.attachedEntity.thorns -= 1
+        self._added_thorns -= 1
+        return super().OnEffectTick()
+    
+    def OnEffectRemove(self):
+        self.attachedEntity.thorns -= self._added_thorns
+        return super().OnEffectRemove()
+    
+    def AddStack(self, count):
+        self.attachedEntity.thorns += count
+        self._added_thorns += count
+        print(f"{self.attachedEntity.name} feels even more thorny!")
+        return super().AddStack(count)
+    
+    def GetName(self):
+        return f"{Fore.GREEN}{Style.BRIGHT}Thorned{Style.NORMAL}{Fore.RESET}"
+    
 class Resistance(AEffect):
     DAMAGE_MULT: float = 0.50
     positive: bool = True
@@ -199,6 +219,22 @@ class Resistance(AEffect):
     
     def GetName(self):
         return f"{Fore.WHITE}{Style.BRIGHT}Resistance{Style.NORMAL}{Fore.RESET}"
+    
+class InfectionEffect(AEffect):
+    positive: bool = False
+    HEALING_REDUCTION: float = 0.80
+
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} is infected!")
+        self.attachedEntity.healingMultiplier -= InfectionEffect.HEALING_REDUCTION
+        return super().OnEffectApply()
+    
+    def OnEffectRemove(self):
+        self.attachedEntity.healingMultiplier += InfectionEffect.HEALING_REDUCTION
+        return super().OnEffectRemove()
+    
+    def GetName(self):
+        return f"{Fore.GREEN}{Style.DIM}Infection{Style.NORMAL}{Fore.RESET}"
     
 class Vulnerablity(AEffect):
     DAMAGE_MULT: float = 0.50
@@ -257,9 +293,6 @@ class LifestealEffect(AEffect):
 
     def OnEffectApply(self):
         amount = 0.5
-        # use dynamic attribute to track lifesteal fraction
-        if not hasattr(self.attachedEntity, 'lifesteal_fraction'):
-            self.attachedEntity.lifesteal = 0.0
         self.attachedEntity.lifesteal += amount
         print(f"{self.attachedEntity.name} feels vampiric power flowing through them!")
         return super().OnEffectApply()
@@ -267,11 +300,6 @@ class LifestealEffect(AEffect):
     def OnEffectRemove(self):
         amount = 0.5
         self.attachedEntity.lifesteal -= amount
-        if self.attachedEntity.lifesteal <= 0:
-            try:
-                delattr(self.attachedEntity, 'lifesteal_fraction')
-            except Exception:
-                pass
         return super().OnEffectRemove()
 
     def GetName(self):

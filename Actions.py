@@ -3,6 +3,7 @@ import GameCore as gc
 import random
 import Entity
 from ElementTags import ElementTag
+from colorama import Fore, Style
 
 # Action Types
 class AAction(ABC):
@@ -12,6 +13,7 @@ class AAction(ABC):
         self.chance = 1.0
         self.parentEntity: Entity.BasicEnemy = Entity.BasicEnemy()
         self.repeatAmount: int | range = 1
+        self.actionColor = Fore.RED
 
     def SetName(self, name: str):
         self.actionName = name
@@ -38,6 +40,10 @@ class AAction(ABC):
     def CanDoAction(self) -> bool:
         return True
     
+    def SetColor(self, color):
+        self.actionColor = color
+        return self
+    
     @abstractmethod
     def PerformAction(self):
         pass
@@ -47,20 +53,23 @@ class AttackAction(AAction):
         self.damage = damage
         self.effectsOnHit: list[type] = []
         self.element: ElementTag | None = None
+        self.attackCount: int = 1
         super().__init__()
 
     def PerformAction(self):
         from AttackInfo import AttInfo
         import StatusEffect
-        gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity).AddElements(self.element))
 
-        for effect in self.effectsOnHit:
-            StatusEffect.Apply(gc.playerCharacter, effect)
+        for _ in range(self.attackCount):
+            gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity).AddElements(self.element))
+            for effect in self.effectsOnHit:
+                StatusEffect.Apply(gc.playerCharacter, effect)
 
         return super().PerformAction()
     
     def GetShortDesc(self):
-        return super().GetShortDesc() + f" for {round(self.CalculateDamage() * (1 - gc.playerCharacter.GetDamageResist()))} damage!" # I am well aware this has issues
+        timesText = "!" if self.attackCount <= 1 else f" {self.attackCount} times!"
+        return super().GetShortDesc() + f" for {round(self.CalculateDamage() * (1 - gc.playerCharacter.GetDamageResist()))} damage{timesText}" # I am well aware this has issues
     
     def SetEffectsOnHit(self, *effects):
         for effect in effects:
@@ -69,6 +78,10 @@ class AttackAction(AAction):
     
     def SetElement(self, element: ElementTag):
         self.element = element
+        return self
+    
+    def SetAttackCount(self, count: int):
+        self.attackCount = count
         return self
     
     def CalculateDamage(self):
@@ -85,6 +98,22 @@ class HealAction(AAction):
     
     def GetShortDesc(self):
         return super().GetShortDesc() + f" for {self.healing} HP!"
+    
+class SummonAction(AAction):
+    def __init__(self, toSummonIndex: int, amount: int = 1):
+        super().__init__()
+        self.toSummonIndex = toSummonIndex
+        self.amount = amount
+
+    def PerformAction(self):
+        import Enemies
+        for _ in range(self.amount):
+            gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.toSummonIndex, self.parentEntity.level), True)
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        import EnemyList
+        return super().GetShortDesc() + f" {EnemyList.__enemy_pool__[self.toSummonIndex].name}!"
     
 class HealRandomUndeadAction(AAction):
     def __init__(self, healing: int):
@@ -173,6 +202,7 @@ class ApplyEffectToSelfAction(AAction):
         super().__init__()
         self.effect = effect
         self.stacks = stacks
+        self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
         import StatusEffect
@@ -217,6 +247,40 @@ class ApplyEffectToPlayerAction(AAction):
         import StatusEffect
         StatusEffect.Apply(gc.playerCharacter, self.effect, self.stacks)
         print(f"{self.parentEntity.name} applies {self.effect.__name__} to the player!")
+        return super().PerformAction()
+    
+class DamageBasedOnThornsAction(AttackAction):
+    def __init__(self, thornsDamageMultiplier: float):
+        self.thornsDamageMultiplier = thornsDamageMultiplier
+        super().__init__(0)
+    
+    def CalculateDamage(self):
+        self.damage = int(self.parentEntity.thorns * self.thornsDamageMultiplier)
+        return super().CalculateDamage()
+    
+class ProtectAction(AAction):
+    def __init__(self, protectAmount: int):
+        super().__init__()
+        self.protectAmount = protectAmount
+        self.actionColor = Fore.YELLOW
+
+    def PerformAction(self):
+        self.parentEntity.shield += self.protectAmount
+        print(f"{self.parentEntity.name} shields itself!")
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        return super().GetShortDesc() + f" for {self.protectAmount}!"
+    
+class TotallyHarmlessWiggleAction(AAction):
+    HEALTH_INCREMENT = 20
+    def __init__(self):
+        super().__init__()
+
+    def PerformAction(self):
+        self.parentEntity.SetMaxHealth(self.parentEntity.maxHealth + TotallyHarmlessWiggleAction.HEALTH_INCREMENT)
+        self.parentEntity.health += TotallyHarmlessWiggleAction.HEALTH_INCREMENT
+        print(f"{self.parentEntity.name} wiggles harmlessly...")
         return super().PerformAction()
     
 class SorrowFeedAction(AAction):

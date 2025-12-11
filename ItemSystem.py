@@ -506,15 +506,11 @@ itemsList = [
     EffectPotion().SetName("Vulnerability Draught").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.Vulnerablity, 3),
     EffectPotion().SetName("Weakening Potion").SetRarity(28).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Weakness, 2),
     EffectPotion().SetName("Resistance Tonic").SetRarity(25).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Resistance, 3),
-    # === NEW SPECIAL POTIONS ===
-    # Enfeebling Elixir: applies both Weakness and Vulnerability for moderate duration
     EffectPotion().SetName("Enfeebling Elixir").SetRarity(30).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.Weakness, 2).AddEffect(StatusEffect.Vulnerablity, 2),
-    # Fortitude Tonic: grants protective fortitude (shield) for a short duration
     EffectPotion().SetName("Fortitude Tonic").SetRarity(26).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.FortitudeEffect, 2),
-    # Berserker's Brew: grants large damage boost for a few turns, then applies Weakness on expiry
     EffectPotion().SetName("Berserker's Brew").SetRarity(14).SetUseCost(2).SetUses(1).SetEffect(StatusEffect.BerserkEffect, 3),
-    # Vampiric Tonic: grants 25% lifesteal for 3 turns
     EffectPotion().SetName("Vampiric Tonic").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.LifestealEffect, 6),
+    EffectPotion().SetName("Thorny Brew").SetRarity(31).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.ThornedEffect, 6),
 
     # === USEFUL ITEMS ===
     #TreasureItem().SetName("Relic Shard").SetRarity(5),

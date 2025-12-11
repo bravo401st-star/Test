@@ -277,14 +277,16 @@ def c_status():
     print("Gold: " + str(gc.playerCharacter.GetGold()))
     print(f"Evasion: {gc.playerCharacter.GetEvasion() * 100}%")
     print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
-    print(f"Additional Raw Damage: {gc.playerCharacter.additionalRawDamage}")
     print(f"Critical Hit Damage Multiplier: {round(gc.playerCharacter.criticalHitMultiplier * 100, 2)}%")
+    print(f"Additional Raw Damage: {gc.playerCharacter.additionalRawDamage}")
     print(f"Damage Multiplier: {round(gc.playerCharacter.outgoingDamageMultiplier * 100, 2)}%")
     print(f"Gold Multiplier: {round(gc.goldMultiplier * 100, 2)}%")
     print(f"Experience Multiplier: {round(gc.experienceMultiplier * 100, 2)}%")
     print(f"Loot Multiplier: {round((gc.additionalLootChance + 1) * 100, 2)}%")
     print(f"Damage Resistance: {round(gc.playerCharacter.GetDamageResist() * 100, 2)}%")
-    print(f"Thorns: {round(gc.playerCharacter.thorns * 100, 2)}%")
+    print(f"Healing: {round(gc.playerCharacter.healingMultiplier * 100, 2)}%")
+    print(f"Damage Reflect: {round(gc.playerCharacter.damageReflect * 100, 2)}%")
+    print(f"Thorns: {gc.playerCharacter.thorns}")
 
     effectsText = gc.playerCharacter.GetEffectListText()
     if effectsText != None:
@@ -312,7 +314,7 @@ def PrintOutEntityList():
         action = enemy.actionSet.GetNextAction()
         actionText = "[Just chillin']"
         if action is not None:
-            actionText = f"!![{Style.BRIGHT}{Fore.RED}{action.GetShortDesc()}{Style.RESET_ALL}]!!"
+            actionText = f"!![{Style.BRIGHT}{action.actionColor}{action.GetShortDesc()}{Style.RESET_ALL}]!!"
 
         # Handle effects text
         effectsText = enemy.GetEffectListText()

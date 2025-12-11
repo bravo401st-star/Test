@@ -93,6 +93,10 @@ class CelestialOrb(ARelic):
         self.name = "Celestial Orb"
         self.description = f"All healing effects are {int(CelestialOrb.HEALING_MULT * 100)}% stronger. At the start of combat, heal {int(CelestialOrb.HEAL_START_COMBAT_PERCENT * 100)}% max health."
 
+    def OnAcquire(self):
+        import GameCore as gc
+        gc.playerCharacter.healingMultiplier += CelestialOrb.HEALING_MULT
+
 class WyrmSpineCharm(ARelic):
     def __init__(self):
         super().__init__()
@@ -141,6 +145,7 @@ class ShadowboundMark(ARelic):
     def OnAcquire(self):
         import GameCore as gc
         gc.playerCharacter.evasion += ShadowboundMark.EXTRA_EVASION
+        gc.playerCharacter.healingMultiplier -= ShadowboundMark.HEALING_REDUCTION_PERCENT
 
 class GlassforgeCrown(ARelic):
     EXTRA_CRIT_CHANCE = 0.40
@@ -261,11 +266,11 @@ class ThornbackTortoiseShell(ARelic):
     ADDITIONAL_THORNS = 0.15
     def __init__(self):
         self.name = "Thornback Tortoise Shell"
-        self.description = f"+{int(ThornbackTortoiseShell.ADDITIONAL_THORNS * 100)}% thorns damage."
+        self.description = f"+{int(ThornbackTortoiseShell.ADDITIONAL_THORNS * 100)}% damage reflection."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.thorns += ThornbackTortoiseShell.ADDITIONAL_THORNS
+        gc.playerCharacter.damageReflect += ThornbackTortoiseShell.ADDITIONAL_THORNS
 
 class WardensBulwark(ARelic):
     DAMAGE_THRESHOLD = 15
@@ -403,6 +408,64 @@ class ContagionVial(ARelic):
             string += tempEffect.GetName() + ("/" if i != len(effects) - 1 else "")
 
         return string
+    
+class VenomousKeystone(ARelic):
+    EXTRA_POISON: int = 1
+    POISONED_ATTACK_DAMAGE: int = 4
+    def __init__(self):
+        super().__init__()
+        self.name = "Venomous Keystone"
+        self.description = f"When applying poison, apply +{VenomousKeystone.EXTRA_POISON} extra. When poisoned enemies attack you, they take {VenomousKeystone.POISONED_ATTACK_DAMAGE} damage."
+
+class ParasiticSporeheart(ARelic):
+    HEAL_ON_POISON: int = 3
+    HEALING_REDUCTION_PERCENT: float = 0.30
+    def __init__(self):
+        super().__init__()
+        self.name = "Parasitic Sporeheart"
+        self.description = f"When applying Poison, also heal +{ParasiticSporeheart.HEAL_ON_POISON} HP. -{int(ParasiticSporeheart.HEALING_REDUCTION_PERCENT * 100)}% Healing received."
+
+    def OnAcquire(self):
+        import GameCore as gc
+        gc.playerCharacter.healingMultiplier -= ParasiticSporeheart.HEALING_REDUCTION_PERCENT
+
+class ExecutionersMark(ARelic):
+    HP_THRESHOLD = 0.20
+    ADDITIONAL_DAMAGE = 0.40
+    def __init__(self):
+        super().__init__()
+        self.name = "Executioner's Mark"
+        self.description = f"Enemies below {int(ExecutionersMark.HP_THRESHOLD * 100)}% HP take {int(ExecutionersMark.ADDITIONAL_DAMAGE * 100)}% more damage from you."
+
+class ClockworkBloodgear(ARelic):
+    HIT_THRESHOLD = 3
+    DAMAGE_THRESHOLD = 7
+    HIT_BONUS = 2.0
+    DAMAGE_RECIEVED_BONUS = 2.0
+    def __init__(self):
+        super().__init__()
+        self.name = "Clockwork Bloodgear"
+        self.description = f"Every {ClockworkBloodgear.GetNumText(ClockworkBloodgear.HIT_THRESHOLD)} hit you deal is doubled. Every {ClockworkBloodgear.GetNumText(ClockworkBloodgear.DAMAGE_THRESHOLD)} hit against you is doubled."
+
+    @classmethod
+    def GetNumText(cls, num: int) -> str:
+        if num == 1:
+            return "1st"
+        elif num == 2:
+            return "2nd"
+        elif num == 3:
+            return "3rd"
+        else:
+            return f"{num}th"
+        
+class CarrioncoreGland(ARelic):
+    DAMAGE_ADDITION = 0.35
+    MAX_HEALTH_GAIN: int = 1
+
+    def __init__(self):
+        super().__init__()
+        self.name = "Carrioncore Gland"
+        self.description = f"+{int(CarrioncoreGland.DAMAGE_ADDITION * 100)}% damage against enemies afflicted with infection. Every time you kill an enemy, gain +{CarrioncoreGland.MAX_HEALTH_GAIN} max health."
 
 """
 class KeystoneIdol(ARelic):

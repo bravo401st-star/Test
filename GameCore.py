@@ -169,15 +169,16 @@ def GenerateReward(Commands):
 
     # give relic reward chance
     if playerCharacter.level.level >= 5 and random.randrange(0, 100) < 5:
-        GiveRelicReward(Commands)
+        GiveRelicReward()
 
-def GiveRelicReward(Commands):
-    import Relics
-    relicReward = Relics.GetRandomRelic()
-    if relicReward == None:
+def GiveRelicReward(relic = None):
+    import Relics, Commands
+    if relic is None:
+        relic = Relics.GetRandomRelic()
+    if not issubclass(type(relic), Relics.ARelic) or relic is None:
         return
-    if (Commands.PromptYesNoQuestion(f"As a reward for your victory, you find a {Style.BRIGHT}{Fore.CYAN}{relicReward.name}{Style.RESET_ALL}. Do you want to keep it?", True)):
-        playerCharacter.GiveRelic(relicReward)
+    if (Commands.PromptYesNoQuestion(f"As a reward for your victory, you find a {Style.BRIGHT}{Fore.CYAN}{relic.name}{Style.RESET_ALL}. Do you want to keep it?", True)):
+        playerCharacter.GiveRelic(relic)
 
 def ChooseNextEvent():
     import GameEvent as ge
@@ -342,3 +343,5 @@ isFirstTurn = True
 currentTurn = 1
 experienceMultiplier = 1.0
 waitingLevelUpRewards = 0
+currentAttacksCount = 0
+currentHitsRecievedCount = 0

@@ -155,7 +155,7 @@ class StrangeCathedral(AGameEvent):
 
         # At this point the player either found a way around or unlocked the door
         print(f"You step into the cathedral’s hollow silence. Dust hangs like fog, and rows of cracked pews lean as if in prayer.\n {Fore.MAGENTA}At the far wall, a reliquary stands with a strange relic.{Style.RESET_ALL}")
-        gc.GiveRelicReward(Commands)
+        gc.GiveRelicReward()
 
         pass
 

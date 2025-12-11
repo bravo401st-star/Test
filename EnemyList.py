@@ -16,14 +16,17 @@ __enemy_pool__ = [
     Entity.MossboundGuardianEnemy().SetName("Mossbound Guardian").SetMaxHealth(60, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.mossbound_action_set),
     Entity.TransformOnDeathEnemy(12, "split into multiple shards!", range(2,4)).SetName("Crystal Cluster").SetMaxHealth(42, setHealthToo=True).SetDropExp(range(2,5)).AttachActionSet(ActionSets.crystal_husk_action_set),
     Entity.BasicEnemy().SetName("Crystal Shard").SetMaxHealth(8, setHealthToo=True).SetDropExp(range(1,3)).DisableSpawnPool().AttachActionSet(ActionSets.crystal_shard_action_set),
-    #Entity.BasicEnemy().SetName("Hollowed Prophet").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2,4)),
     Entity.BasicEnemy().SetName("Mourning Shade").SetMaxHealth(50, setHealthToo=True).SetDropExp(range(3,6)).SetTags(EnemyTag.UNDEAD).AttachActionSet(ActionSets.mourning_shade_action_set),
+    Entity.BasicEnemy().SetName("Bandit").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.bandit_action_set),
+    Entity.BasicEnemy().SetName("Carrion Maggot").SetMaxHealth(20, setHealthToo=True).SetDropExp(range(1,3)).AttachActionSet(ActionSets.carrion_maggot_action_set),
+    Entity.CarrionHorrorEnemy().SetName("Carrion Horror").SetMaxHealth(225, setHealthToo=True).SetDropExp(range(12,35)).AttachActionSet(ActionSets.carrion_horror_action_set).DisableSpawnPool(),
+    Entity.BasicEnemy().SetName("Thornback Tortoise").SetMaxHealth(100, setHealthToo=True).SetDropExp(range(1,6)).AttachActionSet(ActionSets.thornback_action_set),
+    #Entity.BasicEnemy().SetName("Hollowed Prophet").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2,4)),
     #Entity.BasicEnemy().SetName("Cultist"),
     #Entity.BasicEnemy().SetName("Ironclad Marshal"),
     #Entity.BasicEnemy().SetName("Slime"),
+    #Entity.BasicEnemy().SetName("Mimic"),
     #Entity.BasicEnemy().SetName("Vampire Spawn"),
-    Entity.BasicEnemy().SetName("Bandit").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.bandit_action_set)
-    #Entity.BasicEnemy().SetName("Mimic")
 ]
 
 __naturally_spawning_pool___ = []

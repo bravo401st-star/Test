@@ -25,8 +25,10 @@ class AEntity(ABC):
         self.damageResistance = 0.0
         self.shield = 0
         self.lifesteal = 0.0
-        self.thorns = 0.0
+        self.damageReflect = 0.0
         self.stunCount = 0
+        self._healingMultiplier = 1.0
+        self.thorns: int = 0
 
     def OnSpawn(self):
         pass
@@ -37,6 +39,18 @@ class AEntity(ABC):
     def ApplyStun(self, count: int):
         self.stunCount += count
         print(f"{Fore.YELLOW}{Style.DIM}{self.name} is stunned for {self.stunCount} turn{'s' if self.stunCount > 1 else ''}!{Style.RESET_ALL}")
+
+    def OnEffectApply(self, effect):
+        for eff in self.effects:
+            if type(eff) is type(effect):
+                # effect already exists on entity
+                eff.AddStack(effect.stacks)
+                return
+            
+        # apply a NEW effect
+        effect.OnEffectApply()    
+        self.effects.append(effect)
+        pass
 
     def GetAdditionalDesc(self) -> str:
         string = str()
@@ -139,10 +153,13 @@ class AEntity(ABC):
                 if heal_amount > 0:
                     attacker.Heal(heal_amount)
             
-            if self.thorns > 0:
-                reflected = round(attackInfo.damage * self.thorns)
+            if self.damageReflect > 0:
+                reflected = round(attackInfo.damage * self.damageReflect)
                 attacker.Damage(AttInfo(reflected))
                 print(f"{Fore.RED}{self.name} reflected {reflected} damage back at {attacker.name}!{Fore.RESET}")
+
+            if self.thorns > 0:
+                attacker.Damage(AttInfo(self.thorns))
         if (self.health <= 0):
             self.Kill()
         return True
@@ -158,6 +175,7 @@ class AEntity(ABC):
     def Heal(self, amount: int):
         if (self.health >= self.maxHealth):
             return False
+        amount = round(amount * self.healingMultiplier)
         
         self.health += amount
         if (self.health > self.maxHealth):
@@ -191,10 +209,17 @@ class AEntity(ABC):
     
     def set_outgoingDamageMultiplier(self, value: float):
         self._outgoingDamageMultiplier = value
+
+    def get_healingMultiplier(self) -> float:
+        return max(0, self._healingMultiplier)
+    
+    def set_healingMultiplier(self, value: float):
+        self._healingMultiplier = value
         
     # properties
     additionalRawDamage = property(get_additionalRawDamage, set_additionalRawDamage)
     outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, set_outgoingDamageMultiplier)
+    healingMultiplier = property(get_healingMultiplier, set_healingMultiplier)
 
 
 e_EntityDeath = EventSystem.Event(AEntity)
@@ -222,6 +247,19 @@ class BasicEnemy(AEntity):
     def DisableSpawnPool(self):
         self.canSpawnInEncounters = False
         return self
+    
+    def OnEffectApply(self, effect):
+        import StatusEffect
+        if isinstance(effect, StatusEffect.PoisonEffect):
+            venomousKeystoneCount = gc.playerCharacter.GetRelicCount(Relics.VenomousKeystone)
+            if venomousKeystoneCount > 0:
+                effect.AddStack(venomousKeystoneCount * Relics.VenomousKeystone.EXTRA_POISON)
+
+            parasiticSporeheartCount = gc.playerCharacter.GetRelicCount(Relics.ParasiticSporeheart)
+            if parasiticSporeheartCount > 0:
+                gc.playerCharacter.Heal(parasiticSporeheartCount * Relics.ParasiticSporeheart.HEAL_ON_POISON)
+
+        return super().OnEffectApply(effect)
     
     def Kill(self):
         import Relics
@@ -259,7 +297,7 @@ class BasicEnemy(AEntity):
         if gc.playerCharacter.HasRelic(Relics.ContagionVial):
             # check if enemy has any effects that can be spread
             for effect in self.effects:
-                if Relics.ContagionVial.IsRelevantEffect(effect):
+                if type(effect) in Relics.ContagionVial.GetRelevantEffects():
                     enemyList = copy.copy(gc.enemiesInScene)
                     enemyList.remove(self)
                     if len(enemyList) == 0:
@@ -268,7 +306,34 @@ class BasicEnemy(AEntity):
                     StatusEffect.Apply(unluckyEnemy, type(effect), effect.stacks)
                     print(f"{Fore.GREEN}The {Style.BRIGHT}Contagion Vial{Style.NORMAL} has spread {effect.GetName()} to {unluckyEnemy.name}!{Style.RESET_ALL}")
 
+        carrionCount = gc.playerCharacter.GetRelicCount(Relics.CarrioncoreGland)
+        if carrionCount > 0:
+            gc.playerCharacter.maxHealth += Relics.CarrioncoreGland.MAX_HEALTH_GAIN * carrionCount
+            gc.playerCharacter.health += Relics.CarrioncoreGland.MAX_HEALTH_GAIN * carrionCount
+
         return super().Kill()
+    
+    def Damage(self, attackInfo: AttInfo) -> bool:
+        
+        executionersMarkCount = gc.playerCharacter.GetRelicCount(Relics.ExecutionersMark)
+        if executionersMarkCount > 0 and self.GetHealthPercent() <= Relics.ExecutionersMark.HP_THRESHOLD:
+            attackInfo.damage = round(attackInfo.damage * (1 + Relics.ExecutionersMark.ADDITIONAL_DAMAGE * executionersMarkCount))
+
+        if isinstance(attackInfo.attacker, Player):
+            import StatusEffect
+            if gc.playerCharacter.HasRelic(Relics.ClockworkBloodgear):
+                if gc.currentAttacksCount % Relics.ClockworkBloodgear.HIT_THRESHOLD == 0:
+                    attackInfo.damage = round(attackInfo.damage * Relics.ClockworkBloodgear.HIT_BONUS)
+            gc.currentAttacksCount += 1
+
+            carrionCount = gc.playerCharacter.GetRelicCount(Relics.CarrioncoreGland)
+            if carrionCount > 0 and self.HasEffect(StatusEffect.InfectionEffect):
+                attackInfo.damage = round(attackInfo.damage * (1 + Relics.CarrioncoreGland.DAMAGE_ADDITION * carrionCount))
+
+        if not super().Damage(attackInfo):
+            return False
+
+        return True
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
         self.actionSet = copy.deepcopy(actionSet)
@@ -331,7 +396,7 @@ class TrollEnemy(BasicEnemy):
 class WraithEnemy(BasicEnemy):
     def __init__(self):
         super().__init__()
-        self.thorns = 0.5
+        self.damageReflect = 0.5
     
 class TransformOnDeathEnemy(BasicEnemy):
     def __init__(self, transformIndex: int, flavorText: str = "", amountToSpawn: int | range = 1):
@@ -394,6 +459,15 @@ class MossboundGuardianEnemy(BasicEnemy):
             print(f"{Fore.RED}Fire burns the {Style.BRIGHT}{self.name}{Style.NORMAL} and prevents it's growth!{Style.RESET_ALL}")
             self.growthCooldown = MossboundGuardianEnemy.GROWTH_PREVENTION_TURNS
         return super().Damage(attackInfo)
+    
+class CarrionHorrorEnemy(BasicEnemy):
+    def Kill(self):
+        import Relics
+        if not gc.playerCharacter.HasRelic(Relics.CarrioncoreGland):
+            gc.GiveRelicReward(Relics.CarrioncoreGland())
+        else:
+            gc.GiveRelicReward()
+        return super().Kill()
 
 
 class Player(AEntity):
@@ -465,20 +539,10 @@ class Player(AEntity):
             if type(relic) is relicType:
                 count += 1
         return count
-    
-    def Heal(self, amount: int):
-        if self.HasRelic(Relics.CelestialOrb):
-            amount = round(amount * (1 + Relics.CelestialOrb.HEALING_MULT))
-            print(f"{self.name}'s Celestial Orb increases healing to {amount}!")
-
-        if self.HasRelic(Relics.ShadowboundMark):
-            amount = round(amount * Relics.ShadowboundMark.HEALING_REDUCTION_PERCENT)
-            print(f"{self.name}'s Shadowbound Mark reduces healing to {amount}!")
-
-        return super().Heal(amount)
 
     def Damage(self, attackInfo: AttInfo):
         from ElementTags import ElementTag
+        import StatusEffect
         if (gc.godmode):
             print(f"Godly power has blocked {attackInfo.damage} damage.")
             return
@@ -487,12 +551,23 @@ class Player(AEntity):
         if verdantCrestCount > 0 and attackInfo.HasElement(ElementTag.FIRE):
             attackInfo.damage += round(attackInfo.damage * (Relics.VerdantCrest.FIRE_WEAKNESS_PERCENT * verdantCrestCount))
 
+        if gc.playerCharacter.HasRelic(Relics.ClockworkBloodgear):
+            if gc.currentHitsRecievedCount % Relics.ClockworkBloodgear.DAMAGE_THRESHOLD == 0:
+                attackInfo.damage = round(attackInfo.damage * Relics.ClockworkBloodgear.DAMAGE_RECIEVED_BONUS)
+
         result = super().Damage(attackInfo)
 
         if result == True:
             wardensBulwarkCount = gc.playerCharacter.GetRelicCount(Relics.WardensBulwark)
             if wardensBulwarkCount > 0 and attackInfo.damage > Relics.WardensBulwark.DAMAGE_THRESHOLD:
                 Relics.wardensBulwarkStoreDefense += Relics.WardensBulwark.GRANTED_DEFENSE * wardensBulwarkCount
+
+            if isinstance(attackInfo.attacker, BasicEnemy):
+                venomousKeystoneCount = self.GetRelicCount(Relics.VenomousKeystone)
+                if attackInfo.attacker.HasEffect(StatusEffect.PoisonEffect) and venomousKeystoneCount > 0:
+                    attackInfo.attacker.Damage(AttInfo(Relics.VenomousKeystone.POISONED_ATTACK_DAMAGE * venomousKeystoneCount))
+
+                gc.currentHitsRecievedCount += 1
 
         return result
     
