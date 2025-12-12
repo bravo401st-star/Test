@@ -162,7 +162,7 @@ def GenerateReward(Commands):
         itemsToGive += 1
     
     rolls = 2 if playerCharacter.HasRelic(Relics.FortunesEmblem) else 1
-    for i in range(0, itemsToGive):
+    for _ in range(0, itemsToGive):
         rewardItem = Items.GetRandomItem(True, rolls)
         if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True)):
             playerCharacter.GiveItem(rewardItem)

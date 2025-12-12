@@ -223,6 +223,14 @@ class Resistance(AEffect):
 class InfectionEffect(AEffect):
     positive: bool = False
     HEALING_REDUCTION: float = 0.80
+    ROT_CHANCE_PER_TICK: float = 0.15
+
+    def OnEffectTick(self):
+        import random
+        if random.random() < InfectionEffect.ROT_CHANCE_PER_TICK:
+            Apply(self.attachedEntity, RotEffect, 1)
+            print(f"{self.attachedEntity.name} has contracted rot from the infection!")
+        return super().OnEffectTick()
 
     def OnEffectApply(self):
         print(f"{self.attachedEntity.name} is infected!")
@@ -235,6 +243,37 @@ class InfectionEffect(AEffect):
     
     def GetName(self):
         return f"{Fore.GREEN}{Style.DIM}Infection{Style.NORMAL}{Fore.RESET}"
+    
+class RotEffect(AEffect):
+    DAMAGE_PER_TICK: int = 3
+    MAX_HEALTH_LOSS_PER_TICK: int = 1
+    positive: bool = False
+
+    def __init__(self, entity, stacks: int = 1):
+        super().__init__(entity, stacks)
+        self._max_health_reduced: int = 0
+
+    def OnEffectTick(self):
+        self.attachedEntity.Damage(AttInfo(RotEffect.DAMAGE_PER_TICK, None, True))
+        if self.attachedEntity.maxHealth > RotEffect.MAX_HEALTH_LOSS_PER_TICK:
+            self.attachedEntity.SetMaxHealth(self.attachedEntity.maxHealth - RotEffect.MAX_HEALTH_LOSS_PER_TICK)
+            self._max_health_reduced += RotEffect.MAX_HEALTH_LOSS_PER_TICK
+    
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} is rotting!")
+        return super().OnEffectApply()
+    
+    def OnEffectRemove(self):
+        # restore lost max health
+        self.attachedEntity.SetMaxHealth(self.attachedEntity.maxHealth + self._max_health_reduced)
+        return super().OnEffectRemove()
+    
+    def AddStack(self, count):
+        print(f"{self.attachedEntity.name}'s rot spreads further!")
+        return super().AddStack(count)
+    
+    def GetName(self):
+        return f"{Fore.YELLOW}{Style.DIM}Rotting{Style.NORMAL}{Fore.RESET}"
     
 class Vulnerablity(AEffect):
     DAMAGE_MULT: float = 0.50

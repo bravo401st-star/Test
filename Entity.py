@@ -96,10 +96,7 @@ class AEntity(ABC):
             self.RemoveEffect(effect)
 
     def HasEffect(self, effectType: type) -> bool:
-        for effect in self.effects:
-            if type(effect) is effectType:
-                return True
-        return False
+        return self.GetEffect(effectType) is not None
     
     def Cleanup(self):
         pass
@@ -116,6 +113,7 @@ class AEntity(ABC):
         self.maxHealth = max
         if setHealthToo:
             self.SetHealth(max)
+        self.health = min(self.health, self.maxHealth)
         return self
     
     def SetHealth(self, hp: int):
@@ -203,6 +201,18 @@ class AEntity(ABC):
         if len(negativeEffects) <= 0:
             return None
         return random.choice(negativeEffects)
+    
+    def GetEffect(self, effectType: type):
+        for effect in self.effects:
+            if type(effect) is effectType:
+                return effect
+        return None
+    
+    def GetEffectStacks(self, effectType: type) -> int:
+        effect = self.GetEffect(effectType)
+        if effect is None:
+            return 0
+        return effect.stacks
     
     def get_outgoingDamageMultiplier(self) -> float:
         return self._outgoingDamageMultiplier
@@ -622,6 +632,20 @@ class Player(AEntity):
             Relics.wardensBulwarkStoreDefense = 0
 
         return super().DoTurn()
+    
+    def OnEffectApply(self, effect):
+        import StatusEffect
+        super().OnEffectApply(effect)
+
+        # check for LarvalIdol relic and spread extra rot to enemies
+        if isinstance(effect, StatusEffect.RotEffect):
+            rotEffect = self.GetEffect(StatusEffect.RotEffect)
+            if rotEffect is not None and rotEffect.stacks > 3 and gc.playerCharacter.HasRelic(Relics.LarvalIdol):
+                diff = rotEffect.stacks - 3
+                rotEffect.stacks = 3
+                print(f"{Fore.GREEN}The {Style.BRIGHT}Larval Idol{Style.NORMAL} spreads rot to an enemy!{Style.RESET_ALL}")
+                StatusEffect.Apply(random.choice(gc.enemiesInScene), StatusEffect.RotEffect, diff)
+
     
     def get_additionalRawDamage(self) -> int:
         additional = super().get_additionalRawDamage()

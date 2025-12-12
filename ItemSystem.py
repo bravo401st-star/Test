@@ -278,6 +278,47 @@ class SniperWeapon(Weapon):
         self.critDamageMult = mult
         return self
     
+class BlightneedleWeapon(Weapon):
+    SHIELD_ON_HIT = 2
+    def GetDesc(self):
+        return super().GetDesc() + f" - Gain {BlightneedleWeapon.SHIELD_ON_HIT} shield when attacking enemies inflicted with Rot."
+    
+    def OnUse(self, target):
+        if target.HasEffect(StatusEffect.RotEffect):
+            gc.playerCharacter.shield += BlightneedleWeapon.SHIELD_ON_HIT
+
+        super().OnUse(target)
+
+class RotfeederWeapon(Weapon):
+    ROT_ON_HIT_STACKS = 1
+    HEALTH_ON_HIT = 1
+    def GetDesc(self):
+        return super().GetDesc() + f" - Applies {RotfeederWeapon.ROT_ON_HIT_STACKS} stacks of Rot, and heals {RotfeederWeapon.HEALTH_ON_HIT} HP on hit when target is inflicted with rot."
+    
+    def OnUse(self, target):
+        if target.HasEffect(StatusEffect.RotEffect):
+            gc.playerCharacter.Heal(RotfeederWeapon.HEALTH_ON_HIT)
+        StatusEffect.Apply(target, StatusEffect.RotEffect, RotfeederWeapon.ROT_ON_HIT_STACKS)
+        super().OnUse(target)
+
+class MaggotSalve(TargetUseableItem):
+    PER_ROT_STACK = 3
+    def GetDesc(self):
+        return super().GetDesc() + f" - If you're under Rot, heal {MaggotSalve.PER_ROT_STACK} HP per Rot stack or into bleed on an enemy."
+    
+    def Use(self, target) -> bool:
+        if (not target.HasEffect(StatusEffect.RotEffect)):
+            print(f"{target.name} does not have any rot effect!")
+            return False
+        return super().Use(target)
+
+    def OnUse(self, target):
+        if target is gc.playerCharacter:
+            target.Heal(target.GetEffectStacks(StatusEffect.RotEffect) * MaggotSalve.PER_ROT_STACK)
+        else:
+            StatusEffect.Apply(target, StatusEffect.BleedEffect, target.GetEffectStacks(StatusEffect.RotEffect))
+        return super().OnUse(target)
+    
 class Potion(TargetUseableItem):
     tag = "POTION"
 
@@ -457,6 +498,11 @@ itemsList = [
     LifestealWeapon().SetName("Crimson Fang").SetRarity(8).SetUseCost(1).SetDamage(18),
     LifestealWeapon().SetName("Bloodletter").SetRarity(12).SetUseCost(2).SetDamage(26),
     LifestealWeapon().SetName("Ghoul's Cleaver").SetRarity(5).SetUseCost(3).SetDamage(35),
+
+    # === ROT WEAPONS ===
+    BlightneedleWeapon().SetName("Blightneedle Dagger").SetRarity(15).SetUseCost(1).SetDamage(15),
+    RotfeederWeapon().SetName("Rotfeeder Blade").SetRarity(20).SetUseCost(2).SetDamage(22),
+    MaggotSalve().SetName("Maggot Salve").SetRarity(30).SetUseCost(1).SetUses(2),
     
     # === LEGENDARY & RARE WEAPONS ===
     Weapon().SetName("Excalibur").SetRarity(1).SetUseCost(2).SetDamage(65),

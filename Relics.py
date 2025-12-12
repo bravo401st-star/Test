@@ -394,7 +394,7 @@ class ContagionVial(ARelic):
             # Use already-loaded StatusEffect if available, avoid circular import
             if 'StatusEffect' in sys.modules:
                 StatusEffect = sys.modules['StatusEffect']
-                cls._RELEVANT_EFFECTS = [StatusEffect.BleedEffect, StatusEffect.PoisonEffect]
+                cls._RELEVANT_EFFECTS = [StatusEffect.BleedEffect, StatusEffect.PoisonEffect, StatusEffect.RotEffect, StatusEffect.InfectionEffect]
             else:
                 # Fallback: return empty list if StatusEffect hasn't loaded yet
                 cls._RELEVANT_EFFECTS = []
@@ -466,6 +466,13 @@ class CarrioncoreGland(ARelic):
         super().__init__()
         self.name = "Carrioncore Gland"
         self.description = f"+{int(CarrioncoreGland.DAMAGE_ADDITION * 100)}% damage against enemies afflicted with infection. Every time you kill an enemy, gain +{CarrioncoreGland.MAX_HEALTH_GAIN} max health."
+
+class LarvalIdol(ARelic):
+    MAX_ROT_STACKS = 3
+    def __init__(self):
+        super().__init__()
+        self.name = "Larval Idol"
+        self.description = f"You can never have more than {LarvalIdol.MAX_ROT_STACKS} Rot stacks. If you would gain more, they are reflected onto a random enemy instead."
 
 """
 class KeystoneIdol(ARelic):

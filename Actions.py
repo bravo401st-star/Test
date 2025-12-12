@@ -272,6 +272,22 @@ class ProtectAction(AAction):
     def GetShortDesc(self):
         return super().GetShortDesc() + f" for {self.protectAmount}!"
     
+class ShieldAndHealAction(AAction):
+    def __init__(self, shieldAmount: int, healAmount: int):
+        super().__init__()
+        self.shieldAmount = shieldAmount
+        self.healAmount = healAmount
+        self.actionColor = Fore.YELLOW
+
+    def PerformAction(self):
+        self.parentEntity.shield += self.shieldAmount
+        self.parentEntity.Heal(self.healAmount)
+        print(f"{self.parentEntity.name} shields itself and heals!")
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        return super().GetShortDesc() + f" for {self.shieldAmount} shield and {self.healAmount} HP!"
+    
 class TotallyHarmlessWiggleAction(AAction):
     HEALTH_INCREMENT = 20
     def __init__(self):
