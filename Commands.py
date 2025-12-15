@@ -601,7 +601,7 @@ def PrintOutInventory():
     print("Inventory:\n")
     print(f"[{Fore.YELLOW}{Style.BRIGHT}{gc.playerCharacter.GetGold()} Gold{Style.RESET_ALL}]")
     for item in gc.playerCharacter.items:
-        useableFlag = issubclass(type(item), ItemSystem.TargetUseableItem)
+        useableFlag = issubclass(type(item), ItemSystem.UseableItem)
         text = ""
         if useableFlag:
             backFill = Back.CYAN if (gc.playerCharacter.bonusAttacks > 0 and issubclass(type(item), ItemSystem.Weapon)) else Back.RED

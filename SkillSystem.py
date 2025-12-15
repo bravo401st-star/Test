@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
-from typing import Self, Callable
+from typing import Callable
 import ShopSystem
 
 playerSkillPoints = 0
@@ -111,7 +111,7 @@ class SkillTree():
         self.complete: bool = False
         self.nodes: list[SkillNode] = []
 
-    def AppendNode(self, node: SkillNode) -> Self:
+    def AppendNode(self, node: SkillNode):
         self.nodes.append(node)
         return self
     

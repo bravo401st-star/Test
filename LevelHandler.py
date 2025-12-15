@@ -3,7 +3,7 @@ import EventSystem
 
 # ===== EXPERIENCE FORMULA CONSTANTS =====
 EXP_BASE_MULTIPLIER = 5  # Base amount of experience needed at level 1
-EXP_GROWTH_RATE = 0.3    # Exponential growth rate per level
+EXP_GROWTH_RATE = 0.2    # Exponential growth rate per level
 
 class LevelHandler():
     def __init__(self):

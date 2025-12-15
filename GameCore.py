@@ -208,6 +208,7 @@ def ChooseNextEvent():
 def OnCombatStart():
     import Relics
     import StatusEffect
+    import SkillSystem
     from AttackInfo import AttInfo
     from ElementTags import ElementTag
     global isFirstTurn
@@ -248,6 +249,10 @@ def OnCombatStart():
         if negativeEffect is not None:
             playerCharacter.RemoveEffect(negativeEffect)
             print(f"{Fore.CYAN}Your {Style.BRIGHT}Phylactery Shard{Style.NORMAL} removes {negativeEffect.GetName()}{Fore.CYAN} from you!{Style.RESET_ALL}")
+
+    braceSkillRank = SkillSystem.GetSkillNodeRank("sknd_brace")
+    if braceSkillRank > 0:
+        playerCharacter.shield += SkillSystem.BULWARK_BRACE_DEFENSE * braceSkillRank
 
 
 def EndPlayerTurn():

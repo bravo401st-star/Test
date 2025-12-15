@@ -731,10 +731,6 @@ class Player(AEntity):
                 if random.random() < SkillSystem.CARRION_INFECTIOUS_PRESENCE_CHANCE_TO_INFECT * infectiousPresenceRank:
                     StatusEffect.Apply(enemy, StatusEffect.InfectionEffect, 1)
 
-        braceSkillRank = SkillSystem.GetSkillNodeRank("sknd_brace")
-        if braceSkillRank > 0:
-            self.shield += SkillSystem.BULWARK_BRACE_DEFENSE * braceSkillRank
-
         lastStandRank = SkillSystem.GetSkillNodeRank("sknd_laststand")
         if lastStandRank > 0 and self.GetHealthPercent() <= SkillSystem.BULWARK_LAST_STAND_HP_THRESHOLD:
             self.shield += SkillSystem.BULWARK_LAST_STAND_SHIELD_GAIN * lastStandRank
