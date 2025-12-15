@@ -53,7 +53,7 @@ class LevelableItem():
 class UseableItem(AItem):
     def __init__(self):
         super().__init__()
-        self.useCost = 1
+        self._useCost = 1
         self.useCount = -1
         self.effectToApply: None | type = None
         self.effectStacks = 1
@@ -113,8 +113,13 @@ class UseableItem(AItem):
         return self
     
     def SetUseCost(self, cost: int):
-        self.useCost = cost
+        self._useCost = cost
         return self
+    
+    def get_useCost(self) -> int:
+        return self._useCost
+    
+    useCost = property(get_useCost, SetUseCost)
 
 
 class TargetUseableItem(UseableItem):
@@ -157,14 +162,29 @@ class Weapon(TargetUseableItem, LevelableItem):
 
     def GetDesc(self):
         from colorama import Fore, Style
+        from RomanNumerals import IntToRoman
         elementText = f"[{Fore.RESET}{Style.NORMAL}{self.elementType.value}{self.elementType.name}{Fore.RESET}{Style.NORMAL}] " if self.elementType is not None else ""
-        return f"[{Fore.YELLOW}{Style.BRIGHT}{self.itemLevel}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}"
+        return f"[{Fore.YELLOW}{Style.BRIGHT}{IntToRoman(self.itemLevel)}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}"
 
     def OnUse(self, target: AEntity):
         from AttackInfo import AttInfo
         import random
         from colorama import Fore, Style
+        import SkillSystem
         super().OnUse(target)
+
+        # skills
+
+        uncheckedViolenceRank = SkillSystem.GetSkillNodeRank("sknd_uncheckedviolence")
+        if uncheckedViolenceRank > 0:
+            gc.playerCharacter.Damage(AttInfo(3, None, True))
+
+        seepingWoundRank = SkillSystem.GetSkillNodeRank("sknd_seepingwound")
+        if seepingWoundRank > 0 and random.random() < SkillSystem.CARRION_SEEPING_WOUND_CHANCE * seepingWoundRank:
+            StatusEffect.Apply(target, StatusEffect.InfectionEffect, 1)
+                
+        #
+
         totalCritChance = gc.playerCharacter.critialHitChance + self.critChance
         isCrit = random.random() < totalCritChance
         if gc.playerHasAttackedThisTurn == False and gc.playerCharacter.HasRelic(Relics.OraclesWhisper) and gc.isFirstTurn:
@@ -180,6 +200,14 @@ class Weapon(TargetUseableItem, LevelableItem):
             attackInfo.damage = round(attackInfo.damage * (gc.playerCharacter.criticalHitMultiplier * self.critDamageMult))
             if (gc.playerCharacter.HasRelic(Relics.FangoftheRaven)):
                 StatusEffect.Apply(target, StatusEffect.BleedEffect, Relics.FangoftheRaven.BLEED_AMOUNT)
+
+            veinRendRank = SkillSystem.GetSkillNodeRank("sknd_veinrend")
+            if veinRendRank > 0:
+                StatusEffect.Apply(target, StatusEffect.BleedEffect, SkillSystem.VAMPIRIC_VEIN_REND_BLEED_STACKS * veinRendRank)
+                for enemy in gc.enemiesInScene:
+                    effect = enemy.GetEffect(StatusEffect.BleedEffect)
+                    if effect is not None:
+                        effect.OnEffectTick()
         
         if gc.playerCharacter.HasRelic(Relics.RendingClaw) and random.random() < gc.playerCharacter.applyBleedChance:
             StatusEffect.Apply(target, StatusEffect.BleedEffect, 1)
@@ -222,6 +250,20 @@ class Weapon(TargetUseableItem, LevelableItem):
     def SetElement(self, elementType: ElementTag):
         self.elementType = elementType
         return self
+    
+    def get_useCost(self) -> int:
+        import SkillSystem
+        cost = super().get_useCost()
+        uncheckedViolenceRank = SkillSystem.GetSkillNodeRank("sknd_uncheckedviolence")
+        if uncheckedViolenceRank > 0:
+            cost = max(1, cost - 1)
+
+        return cost
+    
+    def set_useCost(self, cost: int) -> None:
+        self._useCost = cost
+    
+    useCost = property(get_useCost, set_useCost)
     
 class NoTargetWeapon(Weapon):
     def GetTarget(self) -> AEntity:

@@ -6,6 +6,19 @@ from colorama import Fore, Back, Style
 
 MAX_ENEMIES_IN_SCENE = 16
 
+playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(max=100, setHealthToo=True)
+enemiesInScene: list[Entity.BasicEnemy] = []
+gameRunning = True
+showPlayerInfo = True
+godmode = False
+killCount = 0
+playerHasAttackedThisTurn = False
+playerHasAttackedLastTurn = False
+isFirstTurn = True
+currentTurn = 1
+currentAttacksCount = 0
+currentHitsRecievedCount = 0
+
 def Init():
     playerCharacter.name = input("Please state your name: ")
     if playerCharacter.name.strip() == "":
@@ -146,19 +159,13 @@ def CheckEncounterStatus(allowReward: bool = True):
 
 def GenerateReward(Commands):
     import Relics
-    global additionalLootChance
-
-    itemsToGive = 1
-    itemsToGive += int(additionalLootChance % 1)
-    percentLeft = additionalLootChance - (itemsToGive - 1)
-    if (additionalLootChance >= 1.0):
-        print(f"{Fore.YELLOW}Your {Style.BRIGHT}Fortune's Emblem{Style.RESET_ALL}{Fore.YELLOW} glows brightly, increasing your loot!{Style.RESET_ALL}")
-
-    # check if player has the relic that gives extra loot
+    from math import floor
     global playerCharacter
-    if playerCharacter.HasRelic(Relics.FortunesEmblem) and random.randrange(0, 100) < percentLeft:
-        if (additionalLootChance < 1.0):
-            print(f"{Fore.YELLOW}Your {Style.BRIGHT}Fortune's Emblem{Style.RESET_ALL}{Fore.YELLOW} glows brightly, increasing your loot!{Style.RESET_ALL}")
+
+    itemsToGive = floor(playerCharacter.lootDropChance)
+    percentLeft = playerCharacter.lootDropChance - itemsToGive
+
+    if random.random() < percentLeft:
         itemsToGive += 1
     
     rolls = 2 if playerCharacter.HasRelic(Relics.FortunesEmblem) else 1
@@ -190,8 +197,8 @@ def ChooseNextEvent():
 
     # Next encounter
     print("You venture deeper into the wilderness...")
-    for i in range(0, random.randrange(1, 2 + playerCharacter.level.level // 4)):
-        level = max(1, playerCharacter.level.level + random.randrange(-3, 5))
+    for i in range(0, random.randrange(1, 2 + playerCharacter.level.level // 5)):
+        level = max(1, playerCharacter.level.level + random.randrange(-5, 3))
         enemy = Enemies.CreateRandomEnemy(1, level)
         if enemy is not None: 
             SpawnEnemy(enemy)
@@ -214,6 +221,8 @@ def OnCombatStart():
     playerHasAttackedThisTurn = False
     Relics.bloodOiledChainBonusDamagePerAttack = 0
     playerCharacter.bonusAttacks = 0
+    playerCharacter._ironWillReady = True
+    playerCharacter._unbreakableReady = True
 
     if playerCharacter.HasRelic(Relics.TimewornHourglass):
         playerCharacter.shield += Relics.TimewornHourglass.SHIELD_AMOUNT
@@ -242,9 +251,18 @@ def OnCombatStart():
 
 
 def EndPlayerTurn():
+    import SkillSystem
+    import StatusEffect
     global isFirstTurn
 
     isFirstTurn = False
+    playerCharacter._tempDamageBonus = 0
+
+    putrefiedResilienceRank = SkillSystem.GetSkillNodeRank("sknd_putrefiedresilience")
+    if putrefiedResilienceRank > 0:
+        for enemy in enemiesInScene:
+            playerCharacter.shield += SkillSystem.CARRION_PUTREFIED_RESILIENCE_SHIELD_PER_STACK * putrefiedResilienceRank * enemy.GetEffectStacks(StatusEffect.RotEffect)
+
     ProcessEnemyTurn()
     OnPlayerTurnStart()
     pass
@@ -299,49 +317,8 @@ def ProcessEnemyTurn():
     CheckEncounterStatus()
 
 def OnLevelUp():
-    global waitingLevelUpRewards
-    waitingLevelUpRewards += 1
+    import SkillSystem
+    SkillSystem.playerSkillPoints += 1
+    print(f"{Fore.YELLOW}Level up!{Fore.RESET} - +1 Skill Points!")
     pass
-
-def GiveLevelUpReward():
-    import time
-    options = ["Increase Max HP +20", "Boost Damage +5", "Gain +1 Max Energy"]
-    header = "LEVEL UP!"
-    opt_lines = [f"{i}. {o}" for i, o in enumerate(options, 1)]
-
-    # determine inner width so header and options share the same box space
-    inner_width = max(len(header), max(len(line) for line in opt_lines))
-    padding = 4                     # total horizontal padding inside the box
-    total_width = inner_width + padding
-
-    border = "+" + "-" * total_width + "+"
-    print(border)
-    print("|" + header.center(total_width) + "|")
-    print(border)
-
-    for line in opt_lines:
-        # one leading space then left-justify the rest so contents align
-        print("| " + line.ljust(total_width - 1) + "|")
-
-    print(border)
-    time.sleep(100)
-
-
-
-playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(max=100, setHealthToo=True)
 playerCharacter.level.e_OnLevelUp.Subscribe(OnLevelUp)
-enemiesInScene: list[Entity.BasicEnemy] = []
-gameRunning = True
-showPlayerInfo = True
-godmode = False
-killCount = 0
-playerHasAttackedThisTurn = False
-playerHasAttackedLastTurn = False
-goldMultiplier = 1.0
-additionalLootChance = 0.0
-isFirstTurn = True
-currentTurn = 1
-experienceMultiplier = 1.0
-waitingLevelUpRewards = 0
-currentAttacksCount = 0
-currentHitsRecievedCount = 0

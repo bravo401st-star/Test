@@ -29,19 +29,23 @@ class FortunesEmblem(ARelic):
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.additionalLootChance += FortunesEmblem.LOOT_MULT
+        gc.playerCharacter.lootDropChance += FortunesEmblem.LOOT_MULT
 
 class GildedCompass(ARelic):
     SHOP_DISCOUNT = 0.2
     GOLD_MULT = 0.5
+    EXTRA_SHOP_ITEMS = 1
     def __init__(self):
         super().__init__()
         self.name = "Gilded Compass"
-        self.description = f"+{int(GildedCompass.GOLD_MULT * 100)}% gold gained. Shops offer {int(GildedCompass.SHOP_DISCOUNT * 100)}% discount and an additional item."
+        self.description = f"+{int(GildedCompass.GOLD_MULT * 100)}% gold gained. Shops offer +{int(GildedCompass.SHOP_DISCOUNT * 100)}% discount and +{GildedCompass.EXTRA_SHOP_ITEMS} additional item."
 
     def OnAcquire(self):
+        import ShopSystem
         import GameCore as gc
-        gc.goldMultiplier += GildedCompass.GOLD_MULT
+        gc.playerCharacter.goldMultiplier += GildedCompass.GOLD_MULT
+        ShopSystem.Shop.shopPrices -= GildedCompass.SHOP_DISCOUNT
+        ShopSystem.Shop.shopItemsCount += GildedCompass.EXTRA_SHOP_ITEMS
 
 class OraclesWhisper(ARelic):
     CRIT_CHANCE = 0.15
@@ -98,10 +102,12 @@ class CelestialOrb(ARelic):
         gc.playerCharacter.healingMultiplier += CelestialOrb.HEALING_MULT
 
 class WyrmSpineCharm(ARelic):
+    EXTRA_TICKS = 1
+    EXTRA_POISON_DAMAGE = 8
     def __init__(self):
         super().__init__()
         self.name = "Wyrm Spine Charm"
-        self.description = f"Your poison ticks an extra time every turn."
+        self.description = f"Your poison ticks +{WyrmSpineCharm.EXTRA_TICKS} extra time every turn. Poisoned enemies take +{WyrmSpineCharm.EXTRA_POISON_DAMAGE} extra damage from poison."
 
 class EternalFlask(ARelic):
     EXTRA_USES: int = 1
@@ -183,7 +189,7 @@ class KnowledgeScroll(ARelic):
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.experienceMultiplier += KnowledgeScroll.EXTRA_EXPERIENCE_PERCENT
+        gc.playerCharacter.experienceMultiplier += KnowledgeScroll.EXTRA_EXPERIENCE_PERCENT
 
 class CursedLocket(ARelic):
     EXPERIENCE_REDUCTION_PERCENT = 0.15
@@ -195,8 +201,8 @@ class CursedLocket(ARelic):
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.experienceMultiplier -= CursedLocket.EXPERIENCE_REDUCTION_PERCENT
-        gc.goldMultiplier += CursedLocket.EXTRA_GOLD_PERCENT
+        gc.playerCharacter.experienceMultiplier -= CursedLocket.EXPERIENCE_REDUCTION_PERCENT
+        gc.playerCharacter.goldMultiplier += CursedLocket.EXTRA_GOLD_PERCENT
 
 class XenolithFragment(ARelic):
     def __init__(self):
@@ -206,10 +212,23 @@ class XenolithFragment(ARelic):
 
 class SoulbinderCharm(ARelic):
     RELIC_DROP_CHANCE = 0.02
+    GUARANTEED_RELIC_DROP_KILLS = 25
+
+    soulbinderCharmGuaranteedRelicDropCounter = 0
     def __init__(self):
         super().__init__()
         self.name = "Soulbinder Charm"
-        self.description = f"Defeated enemies have a {int(SoulbinderCharm.RELIC_DROP_CHANCE * 100)}% chance to drop a random relic."
+        self.description = f"Defeated enemies have a +{int(SoulbinderCharm.RELIC_DROP_CHANCE * 100)}% chance to drop a random relic. Every {SoulbinderCharm.GUARANTEED_RELIC_DROP_KILLS} kills, guarantee a relic drop."
+
+    @classmethod
+    def Trigger(cls):
+        import GameCore as gc
+        cls.soulbinderCharmGuaranteedRelicDropCounter += 1
+
+        if (cls.soulbinderCharmGuaranteedRelicDropCounter >= cls.GUARANTEED_RELIC_DROP_KILLS):
+            cls.soulbinderCharmGuaranteedRelicDropCounter = 0
+            gc.GiveRelicReward()
+
 
 class Dreamcatcher(ARelic):
     EXTRA_STAMINA = 2
@@ -263,14 +282,15 @@ class RendingClaw(ARelic):
         gc.playerCharacter.applyBleedChance += RendingClaw.BLEED_CHANCE
 
 class ThornbackTortoiseShell(ARelic):
-    ADDITIONAL_THORNS = 0.15
+    ADDITIONAL_DMG_REFLECT = 0.15
+    EXTRA_SHIELD_PER_TURN = 5
     def __init__(self):
         self.name = "Thornback Tortoise Shell"
-        self.description = f"+{int(ThornbackTortoiseShell.ADDITIONAL_THORNS * 100)}% damage reflection."
+        self.description = f"+{int(ThornbackTortoiseShell.ADDITIONAL_DMG_REFLECT * 100)}% damage reflection. Gain +{ThornbackTortoiseShell.EXTRA_SHIELD_PER_TURN} shield per turn."
 
     def OnAcquire(self):
         import GameCore as gc
-        gc.playerCharacter.damageReflect += ThornbackTortoiseShell.ADDITIONAL_THORNS
+        gc.playerCharacter.damageReflect += ThornbackTortoiseShell.ADDITIONAL_DMG_REFLECT
 
 class WardensBulwark(ARelic):
     DAMAGE_THRESHOLD = 15
@@ -278,8 +298,7 @@ class WardensBulwark(ARelic):
     def __init__(self):
         super().__init__()
         self.name = "Warden's Bulwark"
-        self.description = f"Taking more than {WardensBulwark.DAMAGE_THRESHOLD} damage in a single hit grants +{WardensBulwark.GRANTED_DEFENSE} Defense next turn."
-wardensBulwarkStoreDefense = 0
+        self.description = f"Taking more than {WardensBulwark.DAMAGE_THRESHOLD} damage in a single hit grants +{WardensBulwark.GRANTED_DEFENSE} shield."
 
 class BloodOiledChain(ARelic):
     BONUS_DAMAGE = 1
@@ -307,7 +326,7 @@ def TriggerSmolderingCore(damage: int):
         enemy.Damage(AttInfo(damage).AddElements(ElementTag.FIRE))
 
 class VerdantCrest(ARelic):
-    HEALTH_REGEN_PER_TURN = 5
+    HEALTH_REGEN_PER_TURN = 7
     FIRE_WEAKNESS_PERCENT = 0.10
     def __init__(self):
         super().__init__()
@@ -418,7 +437,7 @@ class VenomousKeystone(ARelic):
         self.description = f"When applying poison, apply +{VenomousKeystone.EXTRA_POISON} extra. When poisoned enemies attack you, they take {VenomousKeystone.POISONED_ATTACK_DAMAGE} damage."
 
 class ParasiticSporeheart(ARelic):
-    HEAL_ON_POISON: int = 3
+    HEAL_ON_POISON: int = 6
     HEALING_REDUCTION_PERCENT: float = 0.30
     def __init__(self):
         super().__init__()

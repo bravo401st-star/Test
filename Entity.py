@@ -1,4 +1,5 @@
 import copy
+from math import floor
 import EventSystem
 import ItemSystem
 from abc import ABC
@@ -29,6 +30,8 @@ class AEntity(ABC):
         self.stunCount = 0
         self._healingMultiplier = 1.0
         self.thorns: int = 0
+        self.tempHealth = 0
+        self.maxTempHealth = 0
 
     def OnSpawn(self):
         pass
@@ -71,8 +74,14 @@ class AEntity(ABC):
     def GetDamageResist(self) -> float:
         return min(0.8, self.damageResistance)
     
-    def GetShieldText(self) -> str:
-        return f' ({Style.BRIGHT}{Fore.BLUE}{self.shield}{Style.RESET_ALL})' if self.shield > 0 else ''
+    def GetBonusHealthText(self) -> str:
+        text = str()
+        if self.shield > 0:
+            text += f" ({Style.BRIGHT}{Fore.BLUE}{self.shield}{Style.RESET_ALL})"
+
+        if self.tempHealth > 0:
+            text += f" ({Style.DIM}{Fore.YELLOW}{self.tempHealth}{Style.RESET_ALL})"
+        return text
 
     def DoTurn(self):
         effectsToRemove = []
@@ -83,6 +92,8 @@ class AEntity(ABC):
 
         for effect in effectsToRemove:
             self.RemoveEffect(effect)
+
+        self.tempHealth = 0
         pass
 
     def RemoveEffect(self, effect):
@@ -109,6 +120,10 @@ class AEntity(ABC):
         self.level = level
         return self
     
+    def IncreaseMaxHealth(self, amount: int):
+        self.maxHealth += amount
+        self.health += amount
+    
     def SetMaxHealth(self, max: int, setHealthToo: bool = False):
         self.maxHealth = max
         if setHealthToo:
@@ -128,22 +143,38 @@ class AEntity(ABC):
         print(f"{self.name} evaded the attack!")
 
     def Damage(self, attackInfo: AttInfo) -> bool:
-        if (self.health <= 0):
+        if self.health <= 0:
             return False
         if not attackInfo.ignoresEvasion and self.CheckEvasion():
             self.OnEvade(attackInfo)
             return False
+        
+        # Apply damage resistance
         attackInfo.damage -= int(attackInfo.damage * self.GetDamageResist())
-        print(self.name + " took " + str(attackInfo.damage) + " damage!")
-        if self.shield > 0:
+        print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
+        
+        # Deduct from tempHealth first
+        if self.tempHealth > 0:
+            if attackInfo.damage <= self.tempHealth:
+                self.tempHealth -= attackInfo.damage
+                attackInfo.damage = 0
+            else:
+                attackInfo.damage -= self.tempHealth
+                self.tempHealth = 0
+        
+        # Then from shield
+        if self.shield > 0 and attackInfo.damage > 0:
             if attackInfo.damage <= self.shield:
                 self.shield -= attackInfo.damage
                 attackInfo.damage = 0
             else:
                 attackInfo.damage -= self.shield
                 self.shield = 0
+        
+        # Finally to health
         self.health -= attackInfo.damage
-
+        
+        # Handle attacker effects (lifesteal, reflect, thorns)
         attacker = attackInfo.attacker
         if attacker is not None:
             if attacker.lifesteal > 0:
@@ -154,11 +185,12 @@ class AEntity(ABC):
             if self.damageReflect > 0:
                 reflected = round(attackInfo.damage * self.damageReflect)
                 attacker.Damage(AttInfo(reflected))
-                print(f"{Fore.RED}{self.name} reflected {reflected} damage back at {attacker.name}!{Fore.RESET}")
-
+                print(f"{Fore.RED}{self.name} reflected {Style.BRIGHT}{reflected}{Style.NORMAL} damage back at {attacker.name}!{Fore.RESET}")
+            
             if self.thorns > 0:
                 attacker.Damage(AttInfo(self.thorns))
-        if (self.health <= 0):
+        
+        if self.health <= 0:
             self.Kill()
         return True
 
@@ -171,12 +203,13 @@ class AEntity(ABC):
         return False
 
     def Heal(self, amount: int):
-        if (self.health >= self.maxHealth):
-            return False
         amount = round(amount * self.healingMultiplier)
         
         self.health += amount
         if (self.health > self.maxHealth):
+            diff = self.health - self.maxHealth
+            self.tempHealth += diff
+            self.tempHealth = min(self.maxTempHealth, self.tempHealth)
             self.health = self.maxHealth
 
         print(self.name + " healed for " + str(amount) + " health!")
@@ -275,15 +308,19 @@ class BasicEnemy(AEntity):
         import Relics
         import Commands
         import StatusEffect
+        import SkillSystem
         if self.exp == 0:
             return super().Kill()
         toDrop = self.level + random.randrange(self.exp.start, self.exp.stop) if type(self.exp) is range else self.exp
-        gc.playerCharacter.level.GrantExperience(round(toDrop * gc.experienceMultiplier))
-        gc.playerCharacter.GiveGold(round(toDrop * gc.goldMultiplier))
+        gc.playerCharacter.level.GrantExperience(round(toDrop * gc.playerCharacter.experienceMultiplier))
+        gc.playerCharacter.GiveGold(round(toDrop * gc.playerCharacter.goldMultiplier))
 
-        if (gc.playerCharacter.HasRelic(Relics.SoulbinderCharm)):
-            if (random.randrange(0, 100) < int(Relics.SoulbinderCharm.RELIC_DROP_CHANCE * 100)):
-                gc.GiveRelicReward(Commands)
+        soulbinderCharmCount = gc.playerCharacter.GetRelicCount(Relics.SoulbinderCharm)
+        if soulbinderCharmCount > 0:
+            Relics.SoulbinderCharm.Trigger()
+            if (random.random() < Relics.SoulbinderCharm.RELIC_DROP_CHANCE * soulbinderCharmCount):
+                gc.GiveRelicReward()
+
 
         if gc.playerCharacter.HasRelic(Relics.SoulvesselJar):
             Relics.soulvesselJarKillsNeeded -= 1
@@ -321,10 +358,16 @@ class BasicEnemy(AEntity):
             gc.playerCharacter.maxHealth += Relics.CarrioncoreGland.MAX_HEALTH_GAIN * carrionCount
             gc.playerCharacter.health += Relics.CarrioncoreGland.MAX_HEALTH_GAIN * carrionCount
 
+        feastEternalRank = SkillSystem.GetSkillNodeRank("sknd_feasteternal")
+        if feastEternalRank > 0 and self.HasEffect(StatusEffect.BleedEffect):
+            gc.playerCharacter._tempDamageBonus += SkillSystem.VAMPIRIC_FEAST_ETERNAL_DAMAGE_BONUS * feastEternalRank
+            gc.playerCharacter.Heal(SkillSystem.VAMPIRIC_FEAST_ETERNAL_HEAL * feastEternalRank)
+
         return super().Kill()
     
     def Damage(self, attackInfo: AttInfo) -> bool:
-        
+        import SkillSystem
+
         executionersMarkCount = gc.playerCharacter.GetRelicCount(Relics.ExecutionersMark)
         if executionersMarkCount > 0 and self.GetHealthPercent() <= Relics.ExecutionersMark.HP_THRESHOLD:
             attackInfo.damage = round(attackInfo.damage * (1 + Relics.ExecutionersMark.ADDITIONAL_DAMAGE * executionersMarkCount))
@@ -339,6 +382,10 @@ class BasicEnemy(AEntity):
             carrionCount = gc.playerCharacter.GetRelicCount(Relics.CarrioncoreGland)
             if carrionCount > 0 and self.HasEffect(StatusEffect.InfectionEffect):
                 attackInfo.damage = round(attackInfo.damage * (1 + Relics.CarrioncoreGland.DAMAGE_ADDITION * carrionCount))
+
+            serratedBlowsRank = SkillSystem.GetSkillNodeRank("sknd_serratedblows")
+            if serratedBlowsRank > 0 and random.random() < SkillSystem.VAMPIRIC_SERRATED_BLOWS_CHANCE * serratedBlowsRank:
+                StatusEffect.Apply(self, StatusEffect.BleedEffect, 1)
 
         if not super().Damage(attackInfo):
             return False
@@ -493,6 +540,15 @@ class Player(AEntity):
         self.criticalHitMultiplier: float = 2.0
         self.applyBleedChance: float = 0.0
         self.bonusAttacks: int = 0
+        self.goldMultiplier = 1.0
+        self.lootDropChance = 1.0
+        self.experienceMultiplier = 1.0
+        self._tempDamageBonus = 0.0
+        self._nextTurnDamageBonusStored = 0.0
+
+        # Skill triggers
+        self._ironWillReady: bool = True
+        self._unbreakableReady: bool = True
 
     def GiveRelic(self, relic: Relics.ARelic | None):
         if relic is None:
@@ -553,6 +609,7 @@ class Player(AEntity):
     def Damage(self, attackInfo: AttInfo):
         from ElementTags import ElementTag
         import StatusEffect
+        import SkillSystem
         if (gc.godmode):
             print(f"Godly power has blocked {attackInfo.damage} damage.")
             return
@@ -570,7 +627,7 @@ class Player(AEntity):
         if result == True:
             wardensBulwarkCount = gc.playerCharacter.GetRelicCount(Relics.WardensBulwark)
             if wardensBulwarkCount > 0 and attackInfo.damage > Relics.WardensBulwark.DAMAGE_THRESHOLD:
-                Relics.wardensBulwarkStoreDefense += Relics.WardensBulwark.GRANTED_DEFENSE * wardensBulwarkCount
+                self.shield += Relics.WardensBulwark.GRANTED_DEFENSE * wardensBulwarkCount
 
             if isinstance(attackInfo.attacker, BasicEnemy):
                 venomousKeystoneCount = self.GetRelicCount(Relics.VenomousKeystone)
@@ -578,11 +635,31 @@ class Player(AEntity):
                     attackInfo.attacker.Damage(AttInfo(Relics.VenomousKeystone.POISONED_ATTACK_DAMAGE * venomousKeystoneCount))
 
                 gc.currentHitsRecievedCount += 1
+            
+            painFueledPowerSkillRank = SkillSystem.GetSkillNodeRank("sknd_painfueledpower")
+            if painFueledPowerSkillRank > 0:
+                self._nextTurnDamageBonusStored += SkillSystem.BERSERKER_PAIN_FUELED_POWER_BONUS * painFueledPowerSkillRank
 
         return result
     
+    def CheckEvasion(self) -> bool:
+        import SkillSystem
+        # force a fail to dodge if we have death or glory skill AND are within the health threshold
+        if self.GetHealthPercent() <= SkillSystem.BERSERKER_DEATH_OR_GLORY_HP_THRESHOLD and SkillSystem.GetSkillNodeRank("sknd_deathorglory") > 0:
+            return False
+        
+        return super().CheckEvasion()
+    
     def GiveGold(self, amount: int):
+        import SkillSystem
         self.gold += amount
+        
+        # skill check
+        if SkillSystem.IsSkillNodeUnlocked("sknd_bloodforcoin"):
+            healAmt = floor(amount / 5)
+            if healAmt > 0:
+                self.Heal(healAmt)
+
         print(f"{self.name} received {Fore.YELLOW}{Style.BRIGHT}{amount} gold{Style.RESET_ALL}! Current gold: {Fore.YELLOW}{Style.BRIGHT}{self.gold}{Style.RESET_ALL}")
 
     def SpendGold(self, amount: int) -> bool:
@@ -594,6 +671,12 @@ class Player(AEntity):
         return True
     
     def Kill(self):
+        import SkillSystem
+        if self._unbreakableReady and SkillSystem.GetSkillNodeRank("sknd_unbreakable") > 0:
+            self.SetHealth(1)
+            self._unbreakableReady = False
+            print(f"{Fore.CYAN}Your unbreakable tenacity saved you from certain death!{Fore.RESET}")
+            return
         if self.HasRelic(Relics.PhoenixFeather):
             print(f"{Fore.LIGHTMAGENTA_EX}{Style.BRIGHT}Phoenix Feather{Style.RESET_ALL}{Fore.LIGHTMAGENTA_EX} glows brightly, resurrecting {self.name}!{Style.RESET_ALL}")
             self.SetHealth(round(self.maxHealth * Relics.PhoenixFeather.REVIVE_HEALTH_PERCENT))
@@ -618,6 +701,13 @@ class Player(AEntity):
         return self.gold >= amount
     
     def DoTurn(self):
+        import SkillSystem
+        import StatusEffect
+
+        # if we have any next turn damage bonus apply that and reset the stored value
+        self._tempDamageBonus += self._nextTurnDamageBonusStored
+        self._nextTurnDamageBonusStored = 0
+
         bloodOathCount = self.GetRelicCount(Relics.BloodOathPendant)
         if bloodOathCount > 0:
             self.Damage(AttInfo(Relics.BloodOathPendant.HEALTH_LOST_PER_TURN * bloodOathCount))
@@ -627,9 +717,27 @@ class Player(AEntity):
             self.Heal(heal_amount)
             print(f"{Fore.GREEN}The Verdant Crest heals {self.name} for {heal_amount} HP!{Fore.RESET}")
 
-        if self.HasRelic(Relics.WardensBulwark):
-            self.shield += Relics.wardensBulwarkStoreDefense
-            Relics.wardensBulwarkStoreDefense = 0
+        thornBackRelicCount = self.GetRelicCount(Relics.ThornbackTortoiseShell)
+        if thornBackRelicCount > 0:
+            self.shield += Relics.ThornbackTortoiseShell.EXTRA_SHIELD_PER_TURN * thornBackRelicCount
+
+        bloodFrenzyRank = SkillSystem.GetSkillNodeRank("sknd_bloodfrenzy")
+        if bloodFrenzyRank > 0 and self.GetHealthPercent() <= SkillSystem.BERSERKER_BLOOD_FRENZY_HP_THRESHOLD:
+            self.stamina += SkillSystem.BERSERKER_BLOOD_FRENZY_STAMINA_GAIN * bloodFrenzyRank
+
+        infectiousPresenceRank = SkillSystem.GetSkillNodeRank("sknd_infectiouspresence")
+        if infectiousPresenceRank > 0:
+            for enemy in gc.enemiesInScene:
+                if random.random() < SkillSystem.CARRION_INFECTIOUS_PRESENCE_CHANCE_TO_INFECT * infectiousPresenceRank:
+                    StatusEffect.Apply(enemy, StatusEffect.InfectionEffect, 1)
+
+        braceSkillRank = SkillSystem.GetSkillNodeRank("sknd_brace")
+        if braceSkillRank > 0:
+            self.shield += SkillSystem.BULWARK_BRACE_DEFENSE * braceSkillRank
+
+        lastStandRank = SkillSystem.GetSkillNodeRank("sknd_laststand")
+        if lastStandRank > 0 and self.GetHealthPercent() <= SkillSystem.BULWARK_LAST_STAND_HP_THRESHOLD:
+            self.shield += SkillSystem.BULWARK_LAST_STAND_SHIELD_GAIN * lastStandRank
 
         return super().DoTurn()
     
@@ -657,7 +765,9 @@ class Player(AEntity):
         return additional
     
     def get_outgoingDamageMultiplier(self) -> float:
+        import SkillSystem
         mult = super().get_outgoingDamageMultiplier()
+        mult += self._tempDamageBonus
 
         golemCoreCount = self.GetRelicCount(Relics.GolemCore)
         if golemCoreCount > 0 and gc.currentTurn % Relics.GolemCore.TURN_THRESHOLD == 0:
@@ -667,6 +777,17 @@ class Player(AEntity):
             heartOfZurhatchCount = self.GetRelicCount(Relics.HeartofZurhatch)
             if heartOfZurhatchCount > 0:
                 mult += Relics.HeartofZurhatch.ADDITIONAL_DAMAGE * heartOfZurhatchCount
+
+        merchantPowerSkillRank = SkillSystem.GetSkillNodeRank("sknd_merchantpower")
+        if merchantPowerSkillRank > 0:
+            mult += (0.01 * floor(self.gold / 15)) * merchantPowerSkillRank
+
+        rageSparkSkillRank = SkillSystem.GetSkillNodeRank("sknd_ragespark")
+        if rageSparkSkillRank > 0 and self.GetHealthPercent() <= SkillSystem.BERSERKER_RAGE_SPARK_HP_THRESHOLD:
+            mult += SkillSystem.BERSERKER_RAGE_SPARK_DAMAGE_BONUS * rageSparkSkillRank
+
+        if self.GetHealthPercent() <= SkillSystem.BERSERKER_DEATH_OR_GLORY_HP_THRESHOLD and SkillSystem.GetSkillNodeRank("sknd_deathorglory") > 0:
+            mult += SkillSystem.BERSERKER_DEATH_OR_GLORY_DAMAGE_BONUS
 
         return mult
     

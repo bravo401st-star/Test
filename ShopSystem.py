@@ -7,12 +7,15 @@ from colorama import Fore, Style
 import Relics
 
 class Shop:
-    def __init__(self, inventorySize: int = 5):
+    shopPrices = 1.0
+    shopSellPrice = 1.0
+    shopItemsCount = 5
+    shopRelicCount = 0
+
+    def __init__(self):
         self.inventory: list[ItemSystem.AItem] = []
-        hasRelic = gc.playerCharacter.HasRelic(Relics.GildedCompass)
-        inventorySize += 1 if hasRelic else 0
-        self.GenerateInventory(inventorySize)
-        self.discount = (1 - Relics.GildedCompass.SHOP_DISCOUNT) if hasRelic else 1.0
+        self.relicsForSale: list[Relics.ARelic] = []
+        self.GenerateInventory(Shop.shopItemsCount)
         pass
 
     def GenerateInventory(self, numItems: int):
@@ -20,6 +23,11 @@ class Shop:
         for _ in range(numItems):
             item = Items.GetRandomItem(weighted=True, rolls=1, blackList=[ItemSystem.JunkItem])
             self.inventory.append(item)
+
+        for _ in range(Shop.shopRelicCount):
+            relic = Relics.GetRandomRelic()
+            if relic is not None:
+                self.relicsForSale.append(relic)
         pass
 
     def PrintMoney(self):
@@ -80,7 +88,7 @@ class Shop:
 
         # List out items in inventory
         for index, item in enumerate(levelableItems):
-            cost = int(item.GetGoldCost() * self.discount) * item.itemLevel # type: ignore
+            cost = int(item.GetGoldCost() * Shop.shopPrices) * item.itemLevel # type: ignore
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {priceTag} {item.GetDesc()}") # type: ignore
 
@@ -97,7 +105,7 @@ class Shop:
                 return
             if choiceIndex < len(levelableItems):
                 itemToBuy: ItemSystem.LevelableItem = levelableItems[choiceIndex]
-                cost = int(itemToBuy.GetGoldCost() * self.discount) * itemToBuy.itemLevel # type: ignore
+                cost = int(itemToBuy.GetGoldCost() * Shop.shopPrices) * itemToBuy.itemLevel # type: ignore
                 if gc.playerCharacter.SpendGold(cost):
                     itemToBuy.Upgrade()
                     print(f"{itemToBuy.name} has been upgraded to level {itemToBuy.itemLevel}!") # type: ignore
@@ -113,9 +121,14 @@ class Shop:
         
         # List out items in inventory
         for index, item in enumerate(self.inventory):
-            cost = int(item.GetGoldCost() * self.discount)
+            cost = int(item.GetGoldCost() * Shop.shopPrices)
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {priceTag} {item.GetDesc()}")
+
+        for index, relic in enumerate(self.relicsForSale):
+            cost = int(1000 * Shop.shopPrices)
+            priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
+            print(f"{len(self.inventory) + index + 1}. {priceTag} {relic.name} - {relic.description}")
 
         # Select item to buy
         choice = input("\nEnter the item you wish to buy, or '0' to cancel: ")
@@ -127,10 +140,16 @@ class Shop:
                 return
             if choiceIndex < len(self.inventory):
                 itemToBuy = self.inventory[choiceIndex]
-                cost = int(itemToBuy.GetGoldCost() * self.discount)
+                cost = int(itemToBuy.GetGoldCost() * Shop.shopPrices)
                 if gc.playerCharacter.SpendGold(cost):
                     gc.playerCharacter.GiveItem(itemToBuy)
                     self.inventory.pop(choiceIndex)
+            elif choiceIndex >= len(self.inventory) and choiceIndex < len(self.inventory) + len(self.relicsForSale):
+                relicToBuy = self.relicsForSale[choiceIndex - len(self.inventory)]
+                cost = int(1000 * Shop.shopPrices)
+                if gc.playerCharacter.SpendGold(cost):
+                    gc.playerCharacter.GiveRelic(relicToBuy)
+                    self.relicsForSale.pop(choiceIndex - len(self.inventory))
             else:
                 print("Invalid item selection.")
         
@@ -146,7 +165,7 @@ class Shop:
         self.PrintMoney()
         print("Here are your items available for sale:")
         for index, item in enumerate(gc.playerCharacter.items):
-            sellPrice = item.GetGoldCost() // 4
+            sellPrice = round((item.GetGoldCost() // 4) * Shop.shopSellPrice)
             sellPriceTag = f"[{Fore.YELLOW}{Style.BRIGHT}+{sellPrice} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {sellPriceTag} {item.GetDesc()}")
 
@@ -172,4 +191,4 @@ class Shop:
         except Exception as e:
             print(e)
         else:
-            gc.playerCharacter.GiveGold(item.GetGoldCost() // 4)
+            gc.playerCharacter.GiveGold(round((item.GetGoldCost() // 4) * Shop.shopSellPrice))

@@ -8,6 +8,7 @@ import Enemies
 import CommandParam
 from colorama import Fore, Back, Style
 import Relics
+import sys
 
 # To-do: Create a more robust command paramter system, parameter type checking, hints
 #        Dynamic command list depending on current environment
@@ -94,6 +95,7 @@ command_map = {
     "status": Command("c_status", "Display status of player"),
     "showinfo": Command("c_showinfo", "Show info of player at all times"),
     "clear": Command("c_clear", "Clears the console"),
+    "skills": Command("c_skills", "View and invest in skill trees"),
 
     # CHEAT COMMANDS
     "give-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
@@ -107,11 +109,29 @@ command_map = {
     "give-gold": Command("c_givegold", "Give gold", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, False)),
     "give-relic": Command("c_giverelic", "Give relic", True).SetParams(CommandParam.Parameter("relicIndex", CommandParam.IntArgument, True)),
     "relic-list": Command("c_reliclist", "Shows all relics in game by index", True),
+    "give-skillpoint": Command("c_giveskillpoint", "Gives the player skill point(s)", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, True))
 }
 
 def c_clear():
     import os
     os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def _get_single_keypress(prompt: str = "") -> str:
+    try:
+        import msvcrt
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+        ch = msvcrt.getwch()
+        # echo the key (and newline for Enter)
+        if ch == '\r':
+            sys.stdout.write('\n')
+        else:
+            sys.stdout.write(ch + '\n')
+        sys.stdout.flush()
+        return ch
+    except Exception:
+        return input(prompt)
 
 def c_giverelic(arguments: list):
     if len(arguments) <= 0:
@@ -135,6 +155,165 @@ def c_reliclist():
     for relic in Relics.relicsList:
         print(str(index) + ": " + relic.name + " - " + relic.description)
         index += 1
+
+def c_giveskillpoint(arguments: list):
+    import SkillSystem
+
+    amountToGive = 1
+    if len(arguments) > 0:
+        amountToGive = arguments[0].Get()
+
+    SkillSystem.playerSkillPoints += amountToGive
+    print(f"Giving {amountToGive} skill points to player!")
+    pass
+
+def _is_tree_in_progress(tree) -> bool:
+    """Check if a tree has any unlocked nodes."""
+    for node in tree.nodes:
+        if node.IsUnlocked():
+            return True
+    return False
+
+def _is_tree_complete(tree) -> bool:
+    """Check if all nodes in a tree are fully maxed out."""
+    for node in tree.nodes:
+        if node.rank < node.maxRank:
+            return False
+    return True
+
+def _get_tree_in_progress() -> int:
+    """Find which tree is currently in progress. Returns -1 if none."""
+    import SkillSystem
+    for idx, tree in enumerate(SkillSystem.__skill_trees__):
+        if _is_tree_in_progress(tree) and not _is_tree_complete(tree):
+            return idx
+    return -1
+
+def _has_previous_node_maxed(tree, node_idx: int) -> bool:
+    """Check if the previous node in the tree list is fully maxed. First node always returns True."""
+    if node_idx == 0:
+        return True
+    prev_node = tree.nodes[node_idx - 1]
+    return prev_node.rank == prev_node.maxRank
+
+def _has_unmet_prerequisites(node) -> bool:
+    """Check if a node's prerequisites are all met."""
+    import SkillSystem
+    if not hasattr(node, 'prerequisites') or not node.prerequisites:
+        return False
+    for prereq_id in node.prerequisites:
+        prereq_node = SkillSystem.GetSkillNode(prereq_id)
+        if prereq_node is None or not prereq_node.IsUnlocked():
+            return True
+    return False
+
+def c_skills():
+    import SkillSystem
+    
+    while True:
+        c_clear()
+        print(f"\n{Fore.CYAN}=== SKILL TREES ===")
+        print(f"Available Points: {Fore.YELLOW}{SkillSystem.playerSkillPoints}{Style.RESET_ALL}\n")
+        
+        # Find which tree is in progress (if any)
+        in_progress_idx = _get_tree_in_progress()
+        
+        # Display all trees with numeric indices and status
+        for idx, tree in enumerate(SkillSystem.__skill_trees__):
+            is_complete = _is_tree_complete(tree)
+            in_progress = _is_tree_in_progress(tree)
+            
+            if is_complete:
+                status = f"{Fore.GREEN}(Complete){Style.RESET_ALL}"
+            elif in_progress:
+                status = f"{Fore.YELLOW}(In Progress){Style.RESET_ALL}"
+            else:
+                status = ""
+            
+            print(f"{Fore.CYAN}[{idx + 1}] {tree.name.upper()}{' ' + status if status else ''}")
+        print()
+        
+        # Select tree
+        tree_choice = input(f"{Fore.GREEN}Select a tree (1-{len(SkillSystem.__skill_trees__)}) or press Enter to exit: {Style.RESET_ALL}")
+        if not tree_choice or tree_choice.strip() == "":
+            return
+        
+        if not tree_choice.isnumeric():
+            print(f"{Fore.RED}Invalid selection!{Style.RESET_ALL}")
+            continue
+        
+        tree_idx = int(tree_choice) - 1
+        if tree_idx < 0 or tree_idx >= len(SkillSystem.__skill_trees__):
+            print(f"{Fore.RED}Invalid tree index!{Style.RESET_ALL}")
+            continue
+        
+        selected_tree = SkillSystem.__skill_trees__[tree_idx]
+        
+        # Inner loop for node selection in this tree
+        while True:
+            c_clear()
+            # Display nodes in selected tree
+            print(f"Available Points: {Fore.YELLOW}{SkillSystem.playerSkillPoints}{Style.RESET_ALL}")
+            print(f"\n{Fore.CYAN}[{selected_tree.name.upper()}]")
+            for node_idx, node in enumerate(selected_tree.nodes):
+                bullet = "●" if node.IsUnlocked() else "○"
+                rank_display = f" ({Fore.CYAN}{node.rank}/{node.maxRank}{Fore.RESET})"
+                # Check if this node is locked (previous node not fully maxed)
+                is_locked = not _has_previous_node_maxed(selected_tree, node_idx)
+                if is_locked:
+                    print(f" {Back.RED}{Fore.CYAN}[{node_idx + 1}]{Style.RESET_ALL}{Back.RED} {bullet} {node.name}{rank_display} - {node.description}{Style.RESET_ALL}")
+                else:
+                    print(f" {Fore.CYAN}[{node_idx + 1}]{Style.RESET_ALL} {bullet} {node.name}{rank_display} - {node.description}")
+            print()
+            
+            # Determine if we can invest in this tree
+            can_invest = True
+            if SkillSystem.playerSkillPoints <= 0:
+                can_invest = False
+            elif in_progress_idx != -1 and in_progress_idx != tree_idx:
+                can_invest = False  # A different tree is in progress
+            
+            # Select node within tree - simplified: invest in the next available node only
+            if not can_invest:
+                # wait for any keypress and go back
+                _get_single_keypress(f"{Fore.GREEN}Press any key to go back: {Style.RESET_ALL}")
+                break
+            else:
+                key = _get_single_keypress(f"{Fore.GREEN}Press SPACE to invest in the next available node, or press Enter to go back: {Style.RESET_ALL}")
+
+            # Handle Enter/back
+            if key == '\r' or key == '\n' or key == '':
+                break  # Go back to tree selection
+
+            # Only accept 'I' or 'i' to invest
+            if key.lower() != ' ':
+                print(f"{Fore.RED}Invalid selection! Press SPACE to invest or Enter to go back.{Style.RESET_ALL}")
+                input(f"{Fore.GREEN}Press Enter to continue...{Style.RESET_ALL}")
+                continue
+
+            # Find the next investable node (first node that can rank up, whose previous is fully maxed, and whose prerequisites are met)
+            next_idx = None
+            next_node = None
+            for idx2, candidate in enumerate(selected_tree.nodes):
+                if not candidate.CanRankUp():
+                    continue
+                if not _has_previous_node_maxed(selected_tree, idx2):
+                    continue
+                if _has_unmet_prerequisites(candidate):
+                    continue
+                next_idx = idx2
+                next_node = candidate
+                break
+
+            if next_node is None:
+                print(f"{Fore.RED}No investable node available in this tree right now.{Style.RESET_ALL}")
+                input(f"{Fore.GREEN}Press Enter to continue...{Style.RESET_ALL}")
+                continue
+
+            # Invest a single rank into the next node
+            next_node.OnRankUp()
+            SkillSystem.playerSkillPoints -= 1
+            print(f"{Fore.GREEN}✓ Invested in {next_node.name}! Rank now: {next_node.rank}/{next_node.maxRank}{Style.RESET_ALL}\n")
 
 def c_givegold(arguments: list):
     if len(arguments) <= 0:
@@ -275,14 +454,15 @@ def c_status():
     print("Level: " + str(gc.playerCharacter.level))
     print(f"Experience: {gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}")
     print("Gold: " + str(gc.playerCharacter.GetGold()))
-    print(f"Evasion: {gc.playerCharacter.GetEvasion() * 100}%")
+    print(f"Evasion: {round(gc.playerCharacter.GetEvasion() * 100, 2)}%")
+    print(f"Lifesteal: {round(gc.playerCharacter.lifesteal * 100, 2)}%")
     print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
     print(f"Critical Hit Damage Multiplier: {round(gc.playerCharacter.criticalHitMultiplier * 100, 2)}%")
     print(f"Additional Raw Damage: {gc.playerCharacter.additionalRawDamage}")
     print(f"Damage Multiplier: {round(gc.playerCharacter.outgoingDamageMultiplier * 100, 2)}%")
-    print(f"Gold Multiplier: {round(gc.goldMultiplier * 100, 2)}%")
-    print(f"Experience Multiplier: {round(gc.experienceMultiplier * 100, 2)}%")
-    print(f"Loot Multiplier: {round((gc.additionalLootChance + 1) * 100, 2)}%")
+    print(f"Gold Multiplier: {round(gc.playerCharacter.goldMultiplier * 100, 2)}%")
+    print(f"Experience Multiplier: {round(gc.playerCharacter.experienceMultiplier * 100, 2)}%")
+    print(f"Loot Multiplier: {round((gc.playerCharacter.lootDropChance) * 100, 2)}%")
     print(f"Damage Resistance: {round(gc.playerCharacter.GetDamageResist() * 100, 2)}%")
     print(f"Healing: {round(gc.playerCharacter.healingMultiplier * 100, 2)}%")
     print(f"Damage Reflect: {round(gc.playerCharacter.damageReflect * 100, 2)}%")
@@ -305,7 +485,7 @@ def c_entities():
 def PrintOutEntityList():
     from Entity import AEntity
     effectsText = gc.playerCharacter.GetEffectListText()
-    print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}{gc.playerCharacter.GetShieldText()}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
+    print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}{gc.playerCharacter.GetBonusHealthText()}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
     index = 2
     print("-"*40)
     for enemy in gc.enemiesInScene:
@@ -321,7 +501,7 @@ def PrintOutEntityList():
         if enemy.stunCount > 0:
             actionText = f" {Fore.MAGENTA}{Style.BRIGHT}[STUNNED]{Style.RESET_ALL}"
 
-        print(f"{index}: {enemy.name} [HP: {enemy.health}{enemy.GetShieldText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
+        print(f"{index}: {enemy.name} [HP: {enemy.health}{enemy.GetBonusHealthText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
 
 def c_event():
@@ -441,6 +621,9 @@ def PrintOutInventory():
             extraText = ""
             if type(relic) is Relics.SoulvesselJar:
                 extraText = f" [{Fore.MAGENTA}{Style.BRIGHT}{Relics.SoulvesselJar.killsToFill - Relics.soulvesselJarKillsNeeded}/{Relics.SoulvesselJar.killsToFill}{Style.RESET_ALL}]"
+
+            if type(relic) is Relics.SoulbinderCharm:
+                extraText = f" [{Fore.MAGENTA}{Style.BRIGHT}{Relics.SoulbinderCharm.soulbinderCharmGuaranteedRelicDropCounter}/{Relics.SoulbinderCharm.GUARANTEED_RELIC_DROP_KILLS}{Style.RESET_ALL}]"
             print(f"{index}: {Fore.MAGENTA}{Style.BRIGHT}{relic.name}{Style.RESET_ALL} - {Fore.MAGENTA}{relic.description}{Style.RESET_ALL}{extraText}")
             index += 1
 

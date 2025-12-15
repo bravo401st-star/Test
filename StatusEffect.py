@@ -28,6 +28,12 @@ class AEffect(ABC):
         self.stacks += count
 
     def CanBeApplied(self) -> bool:
+        import SkillSystem
+        if not self.positive and isinstance(self.attachedEntity, Player):
+            if self.attachedEntity._ironWillReady and SkillSystem.GetSkillNodeRank("sknd_ironwill") > 0:
+                self.attachedEntity._ironWillReady = False
+                print(f"Your iron will shrugged off {self.stacks} {self.GetName()}!")
+                return False
         return True
 
     @abstractmethod
@@ -73,10 +79,15 @@ class PoisonEffect(AEffect):
     def OnEffectTick(self):
         import GameCore as gc
         import Relics
-        self.attachedEntity.Damage(AttInfo(self.stacks, None, True))
+        damage = self.stacks
 
-        if (gc.playerCharacter.HasRelic(Relics.WyrmSpineCharm) and self.attachedEntity != gc.playerCharacter):
-            self.attachedEntity.Damage(AttInfo(self.stacks, None, True))
+        wyrmSpineCharmCount = gc.playerCharacter.GetRelicCount(Relics.WyrmSpineCharm)
+        if (wyrmSpineCharmCount > 0 and self.attachedEntity != gc.playerCharacter):
+            damage += Relics.WyrmSpineCharm.EXTRA_POISON_DAMAGE * wyrmSpineCharmCount
+            for _ in range(wyrmSpineCharmCount * Relics.WyrmSpineCharm.EXTRA_TICKS):
+                self.attachedEntity.Damage(AttInfo(damage, None, True))
+
+        self.attachedEntity.Damage(AttInfo(damage, None, True))
 
         return super().OnEffectTick()
     
@@ -95,12 +106,20 @@ class BleedEffect(AEffect):
     def OnEffectTick(self):
         import random
         import GameCore as gc
+        import SkillSystem
         from Entity import Player
         from Relics import RendingClaw
         damage = random.randrange(1, 5)
-        rendingRelicCount = gc.playerCharacter.GetRelicCount(RendingClaw)
-        if type(self.attachedEntity) is not Player and rendingRelicCount > 0:
-            damage += RendingClaw.EXTRA_BLEEDING_DAMAGE * rendingRelicCount
+
+        if not isinstance(self.attachedEntity, Player):
+            rendingRelicCount = gc.playerCharacter.GetRelicCount(RendingClaw)
+            if rendingRelicCount > 0:
+                damage += RendingClaw.EXTRA_BLEEDING_DAMAGE * rendingRelicCount
+
+            crimsonDrainRank = SkillSystem.GetSkillNodeRank("sknd_crimsondrain")
+            if crimsonDrainRank > 0:
+                gc.playerCharacter.Heal(SkillSystem.VAMPIRIC_CRIMSON_DRAIN_HEAL * crimsonDrainRank)
+
         self.attachedEntity.Damage(AttInfo(damage, None, True))
         return super().OnEffectTick()
     
@@ -227,15 +246,36 @@ class InfectionEffect(AEffect):
 
     def OnEffectTick(self):
         import random
+        import SkillSystem
+        chance = InfectionEffect.ROT_CHANCE_PER_TICK
+        isPlayer: bool = isinstance(self.attachedEntity, Player)
+
+        if not isPlayer:
+            acceleratedDecayRank = SkillSystem.GetSkillNodeRank("sknd_accelerateddecay")
+            if acceleratedDecayRank > 0:
+                chance += SkillSystem.CARRION_ACCELERATED_DECAY_ROT_CHANCE_BONUS * acceleratedDecayRank
+
         if random.random() < InfectionEffect.ROT_CHANCE_PER_TICK:
-            Apply(self.attachedEntity, RotEffect, 1)
+            Apply(self.attachedEntity, RotEffect, self.stacks)
             print(f"{self.attachedEntity.name} has contracted rot from the infection!")
+            if not isinstance(self.attachedEntity, Player):
+                putridConversionRank = SkillSystem.GetSkillNodeRank("sknd_putridconversion")
+                if putridConversionRank > 0:
+                    self.attachedEntity.Damage(AttInfo(SkillSystem.CARRION_PUTRID_CONVERSION_DAMAGE_BONUS * putridConversionRank, None, True))
+
+        if not isPlayer and SkillSystem.GetSkillNodeRank("sknd_endlessdecay") > 0:
+            return
+
         return super().OnEffectTick()
 
     def OnEffectApply(self):
         print(f"{self.attachedEntity.name} is infected!")
         self.attachedEntity.healingMultiplier -= InfectionEffect.HEALING_REDUCTION
         return super().OnEffectApply()
+    
+    def AddStack(self, count: int):
+        print(f"{self.attachedEntity.name}'s infection spreads!")
+        return super().AddStack(count)
     
     def OnEffectRemove(self):
         self.attachedEntity.healingMultiplier += InfectionEffect.HEALING_REDUCTION
@@ -355,6 +395,14 @@ class FortitudeEffect(AEffect):
         self._added_shield = added
         print(f"{self.attachedEntity.name} gains a protective fortitude ({added} shield)!")
         return super().OnEffectApply()
+    
+    def AddStack(self, count: int):
+        added = FortitudeEffect.SHIELD_PER_STACK * self.stacks
+        self.attachedEntity.shield += added
+        # store how much we added so we can remove exactly
+        self._added_shield += added
+        print(f"{self.attachedEntity.name} gains a protective fortitude ({added} shield)!")
+        return super().AddStack(count)
 
     def OnEffectRemove(self):
         try:
