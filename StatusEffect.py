@@ -385,34 +385,18 @@ class LifestealEffect(AEffect):
         return f"{Fore.MAGENTA}{Style.BRIGHT}Lifesteal{Style.NORMAL}{Fore.RESET}"
 
 class FortitudeEffect(AEffect):
-    SHIELD_PER_STACK: int = 8
+    SHIELD_PER_STACK = 4
     positive: bool = True
 
     def OnEffectApply(self):
-        added = FortitudeEffect.SHIELD_PER_STACK * self.stacks
-        self.attachedEntity.shield += added
-        # store how much we added so we can remove exactly
-        self._added_shield = added
-        print(f"{self.attachedEntity.name} gains a protective fortitude ({added} shield)!")
+        self.attachedEntity.AddShield(FortitudeEffect.SHIELD_PER_STACK * self.stacks)
+        print(f"{self.attachedEntity.name} gains a protective fortitude!")
         return super().OnEffectApply()
     
     def AddStack(self, count: int):
-        added = FortitudeEffect.SHIELD_PER_STACK * self.stacks
-        self.attachedEntity.shield += added
-        # store how much we added so we can remove exactly
-        self._added_shield += added
-        print(f"{self.attachedEntity.name} gains a protective fortitude ({added} shield)!")
+        self.attachedEntity.AddShield(FortitudeEffect.SHIELD_PER_STACK * count)
+        print(f"{self.attachedEntity.name} gains more fortitude!")
         return super().AddStack(count)
-
-    def OnEffectRemove(self):
-        try:
-            self.attachedEntity.shield -= self._added_shield
-
-            if self.attachedEntity.shield < 0:
-                self.attachedEntity.shield = 0
-        except Exception:
-            pass
-        return super().OnEffectRemove()
 
     def GetName(self):
         return f"{Fore.CYAN}{Style.BRIGHT}Fortitude{Style.NORMAL}{Fore.RESET}"

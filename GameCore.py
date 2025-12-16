@@ -144,16 +144,15 @@ def CheckEncounterStatus(allowReward: bool = True):
     import Commands
     global enemiesInScene
     global playerCharacter
-    global waitingLevelUpRewards
     if (len(enemiesInScene) > 0):
         return True
     if allowReward:
         GenerateReward(Commands)
 
-    #for levelup in range(waitingLevelUpRewards):
-    #    GiveLevelUpReward()
+    OnCombatEnd()
 
-    waitingLevelUpRewards = 0
+def OnCombatEnd():
+    playerCharacter.tempHealth = 0
     EndPlayerTurn()
     ChooseNextEvent()
 
@@ -274,6 +273,7 @@ def EndPlayerTurn():
 
 def OnPlayerTurnStart():
     from time import sleep
+    import StatusEffect
     global playerCharacter
     global playerHasAttackedThisTurn
     global playerHasAttackedLastTurn

@@ -55,6 +55,12 @@ class AEntity(ABC):
         self.effects.append(effect)
         pass
 
+    def AddShield(self, amount: int):
+        self.SetShield(self.shield + amount)
+
+    def SetShield(self, amount: int):
+        self.shield = amount
+
     def GetAdditionalDesc(self) -> str:
         string = str()
         if hasattr(self, "gold"):
@@ -84,6 +90,7 @@ class AEntity(ABC):
         return text
 
     def DoTurn(self):
+        import StatusEffect
         effectsToRemove = []
         for effect in self.effects:
             effect.OnEffectTick()
@@ -93,7 +100,8 @@ class AEntity(ABC):
         for effect in effectsToRemove:
             self.RemoveEffect(effect)
 
-        self.tempHealth = 0
+        if not self.HasEffect(StatusEffect.FortitudeEffect):
+            self.SetShield(0)
         pass
 
     def RemoveEffect(self, effect):
@@ -165,11 +173,11 @@ class AEntity(ABC):
         # Then from shield
         if self.shield > 0 and attackInfo.damage > 0:
             if attackInfo.damage <= self.shield:
-                self.shield -= attackInfo.damage
+                self.AddShield(-attackInfo.damage)
                 attackInfo.damage = 0
             else:
                 attackInfo.damage -= self.shield
-                self.shield = 0
+                self.SetShield(0)
         
         # Finally to health
         self.health -= attackInfo.damage

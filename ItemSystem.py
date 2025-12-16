@@ -121,6 +121,22 @@ class UseableItem(AItem):
     
     useCost = property(get_useCost, SetUseCost)
 
+class ShieldItem(UseableItem):
+    tag = "SHIELD"
+    def __init__(self):
+        self.shieldAmount = 0
+        super().__init__()
+
+    def OnUse(self):
+        from colorama import Fore, Style
+        gc.playerCharacter.AddShield(self.shieldAmount)
+        print(f"{Fore.MAGENTA}You brace your self using your {Style.BRIGHT}{self.name}{Style.NORMAL} gaining {Style.BRIGHT}{Fore.BLUE}{self.shieldAmount}{Style.NORMAL}{Fore.MAGENTA} shield.{Fore.RESET}")
+        return super().OnUse()
+    
+    def SetShield(self, amount: int):
+        self.shieldAmount = amount
+        return self
+
 
 class TargetUseableItem(UseableItem):
     def Use(self, target: AEntity) -> bool:
@@ -599,6 +615,18 @@ itemsList = [
     EffectPotion().SetName("Berserker's Brew").SetRarity(14).SetUseCost(2).SetUses(1).SetEffect(StatusEffect.BerserkEffect, 3),
     EffectPotion().SetName("Vampiric Tonic").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.LifestealEffect, 6),
     EffectPotion().SetName("Thorny Brew").SetRarity(31).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.ThornedEffect, 6),
+
+    # === SHIELDING ITEMS ===
+    ShieldItem().SetName("Training Wooden Shield").SetRarity(90).SetUseCost(2).SetShield(4),
+    ShieldItem().SetName("Splintered Buckler").SetRarity(82).SetUseCost(1).SetShield(5),
+    ShieldItem().SetName("Tattered Kite Shield").SetRarity(78).SetUseCost(2).SetShield(16),
+    ShieldItem().SetName("Godkin Bulwark").SetRarity(3).SetUseCost(2).SetShield(40),
+
+    # === SPECIAL SHIELDING ITEMS ===
+    #ShieldItem().SetName("Smoke Bulwark").SetRarity(95).SetUseCost(2).SetShield(4),
+    #ShieldItem().SetName("Venomglass Plate").SetRarity(95).SetUseCost(2).SetShield(4),
+    #ShieldItem().SetName("Golem-Core Plating").SetRarity(95).SetUseCost(2).SetShield(4),
+    #ShieldItem().SetName("Bloodforged Aegis").SetRarity(3).SetUseCost(2).SetShield(45),
 
     # === USEFUL ITEMS ===
     #TreasureItem().SetName("Relic Shard").SetRarity(5),

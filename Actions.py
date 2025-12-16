@@ -265,7 +265,7 @@ class ProtectAction(AAction):
         self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
-        self.parentEntity.shield += self.protectAmount
+        self.parentEntity.AddShield(self.protectAmount)
         print(f"{self.parentEntity.name} shields itself!")
         return super().PerformAction()
     
@@ -280,7 +280,7 @@ class ShieldAndHealAction(AAction):
         self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
-        self.parentEntity.shield += self.shieldAmount
+        self.parentEntity.AddShield(self.shieldAmount)
         self.parentEntity.Heal(self.healAmount)
         print(f"{self.parentEntity.name} shields itself and heals!")
         return super().PerformAction()

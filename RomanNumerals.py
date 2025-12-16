@@ -16,7 +16,6 @@ ROMAN_MAP: List[Tuple[int, str]] = [
 	(1, "I"),
 ]
 
-
 def IntToRoman(n: int) -> str:
 	if not isinstance(n, int):
 		raise TypeError("IntToRoman expects an int")
