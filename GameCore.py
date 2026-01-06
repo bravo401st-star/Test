@@ -2,6 +2,8 @@ import Items
 import Entity
 import Enemies
 import random
+from dataclasses import dataclass
+from enum import Enum
 from colorama import Fore, Back, Style
 
 MAX_ENEMIES_IN_SCENE = 16
@@ -19,14 +21,54 @@ currentTurn = 1
 currentAttacksCount = 0
 currentHitsRecievedCount = 0
 
+# Game settings
+class EDifficulty(str, Enum):
+    EASY = 0.7,
+    NORMAL = 1,
+    HARD = 1.5,
+    IMPOSSIBLE = 2,
+    ACTUALLY_IMPOSSIBLE = 4
+
+@dataclass
+class GameSettings():
+    difficulty: EDifficulty
+    pass
+
+setDifficulty = EDifficulty.NORMAL
+
 def Init():
+    global setDifficulty
+    import Commands
+    # Setup settings
+    while True:
+        Commands.c_clear()
+        for index, diff in enumerate(EDifficulty.__members__.keys(), 1):
+            print(f"{index}. {diff}")
+        choice = input("Choose a difficulty: ")
+        if not choice.isdigit():
+            continue
+
+        index = int(choice)
+        members = list(EDifficulty)
+        if index <= 0 or index > len(members):
+            continue
+        
+        setDifficulty = members[index - 1]
+        Commands.c_clear()
+        print(f"Difficulty set to: {setDifficulty.name.title()}")
+        break
+
+
     playerCharacter.name = input("Please state your name: ")
     if playerCharacter.name.strip() == "":
         playerCharacter.name = "Player"
     print("\nI see... your name is " + playerCharacter.name + "!"
            + "\n\nPlease take these items and begin your quest!!")
     playerCharacter.GiveItem(Items.GetItemByName("Rusty Sword"))
+    playerCharacter.GiveItem(Items.GetItemByName("Training Wooden Shield"))
     playerCharacter.GiveItem(Items.GetItemByName("Lesser Health Potion"))
+
+    playerCharacter.damageResistance -= ((float(setDifficulty.value) - 1) / 1) * 0.3
 
     SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
 

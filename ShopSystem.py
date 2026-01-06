@@ -21,7 +21,7 @@ class Shop:
     def GenerateInventory(self, numItems: int):
         self.inventory.clear()
         for _ in range(numItems):
-            item = Items.GetRandomItem(weighted=True, rolls=1, blackList=[ItemSystem.JunkItem])
+            item = Items.GetRandomItem(weighted=True, rolls=1, filter=Items.Filter(ItemSystem.JunkItem))
             self.inventory.append(item)
 
         for _ in range(Shop.shopRelicCount):

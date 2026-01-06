@@ -47,6 +47,71 @@ class TrapEvent(AGameEvent):
         gc.playerCharacter.Damage(AttInfo(damage))
         print(f"You take {Style.BRIGHT}{Fore.RED}{damage}{Style.RESET_ALL} damage from the trap!")
 
+class MysteriousBlacksmithEvent(AGameEvent):
+    name = "Mysterious Blacksmith Encounter"
+    chance = 15
+    upgradeCost = 100
+
+    def TriggerEvent(self):
+        import GameCore as gc
+        import ItemSystem, Items
+        import Commands
+        Commands.c_clear()
+
+        print(f"You run into a strange man covered in grime. He offers you a deal.\n"
+                f"1. Upgrade one random weapon 3x ({Fore.YELLOW if gc.playerCharacter.CanAfford(MysteriousBlacksmithEvent.upgradeCost) else Fore.RED}{MysteriousBlacksmithEvent.upgradeCost} gold{Fore.RESET})\n"
+                "2. Trade one random weapon for a higher rarity weapon\n"
+                "3. Tell him to f**k off")
+
+        while True:
+            choice = input("Choose your option: ")
+            if choice.isdigit():
+                index = int(choice)
+                if index == 1:
+                    # check the affordability
+                    if not gc.playerCharacter.CanAfford(MysteriousBlacksmithEvent.upgradeCost):
+                        print("You can not afford that.")
+                        continue
+
+                    # get a list of all weapons that CAN upgrade
+                    upgradeableWeaponList = gc.playerCharacter.GetAllItemsOfType(ItemSystem.Weapon)
+                    for item in upgradeableWeaponList:
+                        if not item.CanUpgrade():
+                            upgradeableWeaponList.remove(item)
+
+                    if len(upgradeableWeaponList) <= 0:
+                        print("You have no weapons to upgrade!")
+                        continue
+                    gc.playerCharacter.SpendGold(MysteriousBlacksmithEvent.upgradeCost)
+                    weapon = random.choice(upgradeableWeaponList)
+                    
+                    weapon.Upgrade(3)
+                    Commands.c_clear()
+                    print(f"Your {weapon.name} was upgrade three times!")
+                    return
+                elif index == 2:
+                    weapon = gc.playerCharacter.GetRandomItemOfType(ItemSystem.Weapon)
+                    if weapon == None:
+                        print("You have no weapons to trade.")
+                        continue
+
+                    rarity = weapon.rarity
+                    betterItem = Items.GetRandomItem(True, 1, Items.Filter(ItemSystem.Weapon, False), max(rarity - 1, 1), [Items.GetItemByName(weapon.name)])
+                    if betterItem == None:
+                        print("Your weapon is already the greatest it can be.")
+                        continue
+
+                    gc.playerCharacter.items.remove(weapon)
+                    gc.playerCharacter.GiveItem(betterItem)
+                    print(f"Your {weapon.name} was traded for {betterItem.name}")
+                    return
+                elif index == 3:
+                    Commands.c_clear()
+                    return
+            
+            print("Invalid input.")
+    pass
+
 class MineEvent(AGameEvent):
     name = "Mine Event"
     chance = 20

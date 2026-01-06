@@ -46,6 +46,9 @@ class LevelableItem():
     def Upgrade(self, amount: int = 1):
         self.itemLevel = min(self.itemLevel + amount, self.maxLevel)
 
+    def CanUpgrade(self) -> bool:
+        return self.itemLevel < self.maxLevel
+
     def SetMaxLevel(self, max: int):
         self.maxLevel = max
         return self
@@ -136,6 +139,9 @@ class ShieldItem(UseableItem):
     def SetShield(self, amount: int):
         self.shieldAmount = amount
         return self
+    
+    def GetDesc(self):
+        return super().GetDesc() + f" - SHIELD: {self.shieldAmount}"
 
 
 class TargetUseableItem(UseableItem):
@@ -481,6 +487,28 @@ class Antidote(Potion):
     def OnUse(self, target):
         target.RemoveEffect(StatusEffect.PoisonEffect)
         return super().OnUse(target)
+    
+class Bandage(Potion):
+    def __init__(self):
+        super().__init__()
+        self.bleedCureAmount = 1
+
+    def Use(self, target) -> bool:
+        if (not target.HasEffect(StatusEffect.BleedEffect)):
+            print(f"{target.name} does not have any bleed!")
+            return False
+        return super().Use(target)
+
+    def OnUse(self, target):
+        target.RemoveEffectStack(StatusEffect.BleedEffect, 3)
+        return super().OnUse(target)
+    
+    def SetBleedCure(self, amount: int):
+        self.bleedCureAmount = amount
+        return self
+    
+    def GetDesc(self):
+        return super().GetDesc() + f" - Removes {self.bleedCureAmount} bleed."
 
 class EffectPotion(Potion):
     def __init__(self, effect_type: type | None = None, stacks: int = 1):
@@ -600,6 +628,8 @@ itemsList = [
     SmokeBomb().SetName("Smoke Bomb").SetRarity(28).SetUseCost(1).SetUses(1),
     SmokeBomb().SetName("Smoke Pellet").SetRarity(38).SetUseCost(1).SetUses(2),
     SporecloudWeapon().SetName("Spore Cloud Sack").SetRarity(45).SetUseCost(1).SetUses(2),
+    Bandage().SetName("Bandage").SetRarity(84).SetUseCost(1).SetUses(2).SetBleedCure(3),
+    Bandage().SetName("Tourniquet").SetRarity(72).SetUseCost(1).SetUses(2).SetBleedCure(50),
     
     # === OFFENSIVE POTIONS ===
     EffectPotion().SetName("Poison Vial").SetRarity(35).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.PoisonEffect, 4),

@@ -21,11 +21,13 @@ class AEffect(ABC):
 
     # To be run at the start of each turn
     def OnEffectTick(self):
-        self.stacks -= 1
-        pass
+        self.RemoveStack()
 
-    def AddStack(self, count: int):
+    def AddStack(self, count: int = 1):
         self.stacks += count
+
+    def RemoveStack(self, count: int = 1):
+        self.stacks -= count
 
     def CanBeApplied(self) -> bool:
         import SkillSystem

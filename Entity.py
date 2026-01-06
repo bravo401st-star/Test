@@ -108,6 +108,13 @@ class AEntity(ABC):
         self.effects.remove(effect)
         effect.OnEffectRemove()
 
+    def RemoveEffectStack(self, effectType: type, amount: int = 1):
+        try:
+            effect = self.GetEffect(effectType)
+            effect.RemoveStack(amount)
+        except:
+            pass
+
     def ClearStatusEffects(self, ignorePositive = False):
         for effect in reversed(self.effects):
             if ignorePositive and effect.positive:
@@ -159,26 +166,37 @@ class AEntity(ABC):
         
         # Apply damage resistance
         attackInfo.damage -= int(attackInfo.damage * self.GetDamageResist())
-        print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
         
-        # Deduct from tempHealth first
-        if self.tempHealth > 0:
-            if attackInfo.damage <= self.tempHealth:
-                self.tempHealth -= attackInfo.damage
-                attackInfo.damage = 0
-            else:
-                attackInfo.damage -= self.tempHealth
-                self.tempHealth = 0
-        
-        # Then from shield
+        # Deduct from shield first
         if self.shield > 0 and attackInfo.damage > 0:
+            blocked = 0
             if attackInfo.damage <= self.shield:
                 self.AddShield(-attackInfo.damage)
+                blocked = attackInfo.damage
                 attackInfo.damage = 0
             else:
                 attackInfo.damage -= self.shield
+                blocked = self.shield
                 self.SetShield(0)
+
+            print(f"{self.name} blocked {Fore.CYAN}{blocked}{Fore.RESET} damage!")
+
+        # Then from temp health
+        if self.tempHealth > 0:
+            absorbed = 0
+            if attackInfo.damage <= self.tempHealth:
+                self.tempHealth -= attackInfo.damage
+                absorbed = attackInfo.damage
+                attackInfo.damage = 0
+            else:
+                attackInfo.damage -= self.tempHealth
+                absorbed = self.tempHealth
+                self.tempHealth = 0
+            
+            print(f"{self.name} absorbed {Fore.YELLOW}{absorbed}{Fore.RESET} damage!")
         
+        print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
+
         # Finally to health
         self.health -= attackInfo.damage
         
@@ -288,7 +306,7 @@ class BasicEnemy(AEntity):
             self.actionSet.Setup(self)
 
         # scale health by level
-        self.SetMaxHealth(round(self.maxHealth * (1 + 0.03 * (self.level - 1))), True)
+        self.SetMaxHealth(round(self.maxHealth * (1 + 0.03 * (self.level - 1)) * float(gc.setDifficulty.value)), True)
         return super().OnSpawn()
 
     def SetDropExp(self, xp: range | int):
@@ -591,6 +609,23 @@ class Player(AEntity):
             if item.name == itemName:
                 return True
         return False
+    
+    def GetAllItemsOfType(self, itemType: type) -> list:
+        matching = []
+        for item in self.items:
+            if isinstance(item, itemType):
+                matching.append(item)
+
+        return matching
+    
+    def GetRandomItemOfType(self, itemType: type):
+        # get all items that match that type
+        matching = self.GetAllItemsOfType(itemType)
+
+        if len(matching) <= 0:
+            return None
+
+        return random.choice(matching)
     
     def GetItemCount(self, itemName: str) -> int:
         count = 0

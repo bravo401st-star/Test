@@ -1,8 +1,34 @@
 import ItemSystem
 import random
+from dataclasses import dataclass, astuple
+from collections.abc import Iterable
+import copy
 
-def GetRandomItem(weighted: bool = False, rolls: int = 1, blackList: list[type] | None = None) -> ItemSystem.AItem:
-    items = GetListWithBlacklist(blackList) if blackList is not None else ItemSystem.itemsList
+@dataclass
+class Filter():
+    typeFilter: tuple[type[ItemSystem.AItem]]
+    isBlackList: bool = True
+    pass
+
+def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: Filter | None = None, maxRarity: int = 100, removeItems: list[ItemSystem.AItem] | None = None) -> ItemSystem.AItem | None:
+    items = list()
+    if filter is not None:
+        filterList = list(filter.typeFilter) if type(filter.typeFilter) is Iterable else [filter.typeFilter]
+        items = GetListWithBlacklist(filterList) if filter.isBlackList else GetListWithWhitelist(filterList)
+    else:
+        items = copy.deepcopy(ItemSystem.itemsList)
+
+    for item in reversed(items):
+        if item.rarity > maxRarity:
+            items.remove(item)
+    
+    if removeItems is not None:
+        for remove in reversed(removeItems):
+            if remove in items:
+                items.remove(remove)
+
+    if len(items) <= 0:
+        return None
 
     if weighted:
         totalWeight = 0
