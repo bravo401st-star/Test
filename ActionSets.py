@@ -1,6 +1,7 @@
 import Actions as AP
 import StatusEffect
 from colorama import Fore
+from ElementTags import ElementTag
 
 goblin_action_set = AP.ActionSet()
 goblin_action_set.AppendAction(AP.AttackAction(10).SetName("Slash").SetShortDesc("Preparing to slash"))
@@ -40,7 +41,7 @@ boggy_pile_action_set.AppendAction(AP.NothingAction().SetName("Shaking").SetShor
 boggy_pile_action_set.AppendAction(AP.TransformAction(6).SetName("Transform").SetShortDesc("Transforming into "))
 
 wraith_action_set = AP.ActionSet()
-wraith_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.PhaseShifted, 2).SetName("Phasing").SetShortDesc("Phase Shifting"))
+wraith_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.PhaseShifted, 1).SetName("Phasing").SetShortDesc("Phase Shifting"))
 wraith_action_set.AppendAction(AP.RemovePlayerBuffsAndAttackAction(8).SetName("Mirror Shatter").SetShortDesc("Shattering your illusion and hitting"))
 
 emberling_action_set = AP.ActionSet()
@@ -61,7 +62,7 @@ crystal_shard_action_set.AppendAction(AP.AttackAction(15).SetName("Jab").SetShor
 mourning_shade_action_set = AP.ActionSet()
 mourning_shade_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Weakness, 3).SetName("Weep").SetShortDesc("Preparing to weep").SetRepeat(range(3)))
 mourning_shade_action_set.AppendAction(AP.SorrowFeedAction().SetName("Sorrow Feed").SetShortDesc("Preparing to feed off your sorrow..."))
-mourning_shade_action_set.AppendAction(AP.AttackAction(3).SetName("Screech").SetShortDesc("Preparing to screech").SetChance(0.6))
+mourning_shade_action_set.AppendAction(AP.AttackAction(3).SetName("Screech").SetShortDesc("Preparing to screech").SetAttackCount(3))
 
 bandit_action_set = AP.ActionSet()
 bandit_action_set.AppendAction(AP.StealAndAttackAction(12, range(5,20)).SetName("Mug").SetShortDesc("Preparing to mug and stab"))
@@ -83,3 +84,10 @@ carrion_horror_action_set.AppendAction(AP.AttackAction(30).SetName("Devour").Set
 carrion_horror_action_set.AppendAction(AP.AttackAction(2).SetName("RendingFlurry").SetShortDesc("Preparing to rend").SetAttackCount(15).SetEffectsOnHit(StatusEffect.InfectionEffect).SetRepeat(range(3)))
 carrion_horror_action_set.AppendAction(AP.SummonAction(15, 3).SetName("Spawn").SetShortDesc("Preparing to spawn").SetChance(0.5))
 carrion_horror_action_set.AppendAction(AP.ShieldAndHealAction(100, 25).SetName("Bury").SetShortDesc("Preparing to bury itself").SetChance(0.5))
+
+ironclad_action_set = AP.ActionSet()
+ironclad_action_set.AppendAction(AP.ShieldRandomAlly(20, 3).SetName("Protect").SetShortDesc("Shielding a random ally").SetRepeat(3))
+ironclad_action_set.AppendAction(AP.AttackAction(16).SetName("Slice").SetShortDesc("Preparing to slice").SetChance(0.5))
+
+magma_beast_action_set = AP.ActionSet()
+magma_beast_action_set.AppendAction(AP.AttackAction(10).SetName("Burn").SetShortDesc("Preparing to burn you").SetAttackCount(2).SetElement(ElementTag.FIRE))

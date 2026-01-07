@@ -34,7 +34,7 @@ def GameLoop():
         gc.CheckEncounterStatus()
 
     print("Game over!")
-    print(f"[Kills: {gc.killCount}] [Level Reached: {gc.playerCharacter.level.level}]")
+    print(f"[Kills: {gc.killCount}] [Level Reached: {gc.playerCharacter.level.level}] [Difficulty: {gc.setDifficulty.name.title()}]")
 
 def GetInput() -> str:
     import SkillSystem

@@ -377,7 +377,7 @@ class GravedustLedger(ARelic):
     def __init__(self):
         super().__init__()
         self.name = "Gravedust Ledger"
-        self.description = f"Each time you kill an enemy, gain +{GravedustLedger.BONUS_ATTACKS_PER_KILL} temporary attack for that combat."
+        self.description = f"Each time you kill an enemy, gain +{GravedustLedger.BONUS_ATTACKS_PER_KILL} free bonus attack for that combat."
 
 class HeartofZurhatch(ARelic):
     HEALTH_THRESHOLD = 0.40
@@ -491,7 +491,29 @@ class LarvalIdol(ARelic):
     def __init__(self):
         super().__init__()
         self.name = "Larval Idol"
-        self.description = f"You can never have more than {LarvalIdol.MAX_ROT_STACKS} Rot stacks. If you would gain more, they are reflected onto a random enemy instead."
+        self.description = f"You can never have more than {LarvalIdol.MAX_ROT_STACKS} Rot stacks. If you would gain more, it is reflected onto a random enemy instead."
+
+class MalformedTenticle(ARelic):
+    DAMAGE_DEALT = 5
+    def __init__(self):
+        super().__init__()
+        self.name = "Malformed Tenticle"
+        self.description = f"Whenever you attack, deal {MalformedTenticle.DAMAGE_DEALT} damage to a random enemy."
+
+class ShockAbsorber(ARelic):
+    MAX_DAMAGE_RECIEVED = 75
+    SHIELD_GAIN = 2
+    def __init__(self):
+        super().__init__()
+        self.name = "Shock Absorber"
+        self.description = f"Gain {ShockAbsorber.SHIELD_GAIN} shield whenever you take damage, never take more than {ShockAbsorber.MAX_DAMAGE_RECIEVED} damage in a single hit."
+
+class BulwarkGuidebook(ARelic):
+    SHIELD_ITEM_BONUS: float = 1
+    def __init__(self):
+        super().__init__()
+        self.name = "Bulwark's Guidebook"
+        self.description = f"Shield items are +{int(BulwarkGuidebook.SHIELD_ITEM_BONUS * 100)}% more effective. When using a shield, deal damage to random enemy equal to the shield gained."
 
 """
 class KeystoneIdol(ARelic):

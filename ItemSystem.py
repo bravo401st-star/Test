@@ -132,8 +132,13 @@ class ShieldItem(UseableItem):
 
     def OnUse(self):
         from colorama import Fore, Style
-        gc.playerCharacter.AddShield(self.shieldAmount)
-        print(f"{Fore.MAGENTA}You brace your self using your {Style.BRIGHT}{self.name}{Style.NORMAL} gaining {Style.BRIGHT}{Fore.BLUE}{self.shieldAmount}{Style.NORMAL}{Fore.MAGENTA} shield.{Fore.RESET}")
+        import random
+        from AttackInfo import AttInfo
+        shieldGain = self.CalculateShieldGain()
+        gc.playerCharacter.AddShield(shieldGain)
+        print(f"{Fore.MAGENTA}You brace your self using your {Style.BRIGHT}{self.name}{Style.NORMAL} gaining {Style.BRIGHT}{Fore.CYAN}{shieldGain}{Style.NORMAL}{Fore.MAGENTA} shield.{Fore.RESET}")
+        if gc.playerCharacter.HasRelic(Relics.BulwarkGuidebook):
+            random.choice(gc.enemiesInScene).Damage(AttInfo(shieldGain, gc.playerCharacter))
         return super().OnUse()
     
     def SetShield(self, amount: int):
@@ -141,7 +146,11 @@ class ShieldItem(UseableItem):
         return self
     
     def GetDesc(self):
-        return super().GetDesc() + f" - SHIELD: {self.shieldAmount}"
+        return super().GetDesc() + f" - SHIELD: {self.CalculateShieldGain()}"
+    
+    def CalculateShieldGain(self):
+        bulwarkGuidebookBonus = self.shieldAmount * gc.playerCharacter.GetRelicCount(Relics.BulwarkGuidebook) * Relics.BulwarkGuidebook.SHIELD_ITEM_BONUS
+        return self.shieldAmount + bulwarkGuidebookBonus
 
 
 class TargetUseableItem(UseableItem):
@@ -239,6 +248,9 @@ class Weapon(TargetUseableItem, LevelableItem):
         
         if gc.playerCharacter.HasRelic(Relics.RendingClaw) and random.random() < gc.playerCharacter.applyBleedChance:
             StatusEffect.Apply(target, StatusEffect.BleedEffect, 1)
+
+        if gc.playerCharacter.HasRelic(Relics.MalformedTenticle):
+            random.choice(gc.enemiesInScene).Damage(AttInfo(5, None, True))
 
         target.Damage(attackInfo)
         bloodOiledChainCount = gc.playerCharacter.GetRelicCount(Relics.BloodOiledChain)
@@ -653,8 +665,8 @@ itemsList = [
     EffectPotion().SetName("Thorny Brew").SetRarity(31).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.ThornedEffect, 6),
 
     # === SHIELDING ITEMS ===
-    ShieldItem().SetName("Training Wooden Shield").SetRarity(90).SetUseCost(2).SetShield(4),
-    ShieldItem().SetName("Splintered Buckler").SetRarity(82).SetUseCost(1).SetShield(5),
+    ShieldItem().SetName("Training Wooden Shield").SetRarity(90).SetUseCost(1).SetShield(4),
+    ShieldItem().SetName("Splintered Buckler").SetRarity(82).SetUseCost(1).SetShield(6),
     ShieldItem().SetName("Tattered Kite Shield").SetRarity(78).SetUseCost(2).SetShield(16),
     ShieldItem().SetName("Godkin Bulwark").SetRarity(3).SetUseCost(2).SetShield(40),
 

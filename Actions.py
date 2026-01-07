@@ -89,8 +89,9 @@ class AttackAction(AAction):
     
 class HealAction(AAction):
     def __init__(self, healing: int):
-        self.healing = healing
         super().__init__()
+        self.healing = healing
+        self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
         self.parentEntity.Heal(self.healing)
@@ -115,10 +116,29 @@ class SummonAction(AAction):
         import EnemyList
         return super().GetShortDesc() + f" {EnemyList.__enemy_pool__[self.toSummonIndex].name}!"
     
+class ShieldRandomAlly(AAction):
+    def __init__(self, shieldAmount: int, times: int):
+        super().__init__()
+        self.actionColor = Fore.YELLOW
+        self.shieldAmount = shieldAmount
+        self.timesToPerform = times
+
+    def PerformAction(self):
+        for i in range(self.timesToPerform):
+            allyToShield = random.choice(gc.enemiesInScene)
+            allyToShield.AddShield(self.shieldAmount)
+            print(f"{self.parentEntity.name} shielded {allyToShield.name} for {self.shieldAmount}!")
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        return super().GetShortDesc() + f" for {self.shieldAmount}, {self.timesToPerform} times"
+    pass
+    
 class HealRandomUndeadAction(AAction):
     def __init__(self, healing: int):
         super().__init__()
         self.healing = healing
+        self.actionColor = Fore.YELLOW
 
     def CanDoAction(self):
         return gc.GetRandomEnemyByTag("Undead") != None
@@ -138,6 +158,7 @@ class TauntAction(AAction):
     def __init__(self, tauntText: str):
         super().__init__()
         self.tauntText = tauntText
+        self.actionColor = Fore.WHITE
 
     def PerformAction(self):
         print(f"[#{gc.GetIndexOfEnemy(self.parentEntity)}][LVL {self.parentEntity.level}] {self.parentEntity.name}: {self.tauntText}")
@@ -147,6 +168,7 @@ class BuffAlliesAction(AAction):
     def __init__(self, amount: int):
         super().__init__()
         self.amount = amount
+        self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
         allies = gc.GetAllEnemiesOfType(type(self.parentEntity))
@@ -163,6 +185,7 @@ class BuffAlliesAction(AAction):
 class NothingAction(AAction):
     def __init__(self):
         super().__init__()
+        self.actionColor = Fore.WHITE
 
     def PerformAction(self):
         return super().PerformAction()
@@ -210,6 +233,10 @@ class ApplyEffectToSelfAction(AAction):
         return super().PerformAction()
     
 class EmberlingGrow(AAction):
+    def __init__(self):
+        super().__init__()
+        self.actionColor = Fore.YELLOW
+
     def PerformAction(self):
         from Entity import EmberlingEnemy
         if type(self.parentEntity) is not EmberlingEnemy:
@@ -292,6 +319,7 @@ class TotallyHarmlessWiggleAction(AAction):
     HEALTH_INCREMENT = 20
     def __init__(self):
         super().__init__()
+        self.actionColor = Fore.WHITE
 
     def PerformAction(self):
         self.parentEntity.SetMaxHealth(self.parentEntity.maxHealth + TotallyHarmlessWiggleAction.HEALTH_INCREMENT)
@@ -303,6 +331,7 @@ class SorrowFeedAction(AAction):
     def __init__(self, damagePerDebuff: int = 1):
         super().__init__()
         self.damagePerDebuff = damagePerDebuff
+        self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
         debuffCount = 0
@@ -342,8 +371,9 @@ class StealAndAttackAction(AttackAction):
     
 class EscapeAction(AAction):
     def __init__(self, escapeTaunt: str):
-        self.escapeTaunt: str = escapeTaunt
         super().__init__()
+        self.escapeTaunt: str = escapeTaunt
+        self.actionColor = Fore.YELLOW
 
     def PerformAction(self):
         from colorama import Fore, Style

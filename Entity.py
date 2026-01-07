@@ -83,7 +83,7 @@ class AEntity(ABC):
     def GetBonusHealthText(self) -> str:
         text = str()
         if self.shield > 0:
-            text += f" ({Style.BRIGHT}{Fore.BLUE}{self.shield}{Style.RESET_ALL})"
+            text += f" ({Style.BRIGHT}{Fore.CYAN}{self.shield}{Style.RESET_ALL})"
 
         if self.tempHealth > 0:
             text += f" ({Style.DIM}{Fore.YELLOW}{self.tempHealth}{Style.RESET_ALL})"
@@ -197,7 +197,8 @@ class AEntity(ABC):
             
             print(f"{self.name} absorbed {Fore.YELLOW}{absorbed}{Fore.RESET} damage!")
         
-        print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
+        if attackInfo.damage > 0:
+            print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
 
         # Finally to health
         self.health -= attackInfo.damage
@@ -425,11 +426,11 @@ class BasicEnemy(AEntity):
         return self
 
     def DoTurn(self):
+        super().DoTurn()
         if (self.health <= 0):
             return
         if self.actionSet != None:
             self.actionSet.PerformNextAction()
-        return super().DoTurn()
 
     def SetTags(self, *tags: str):
         self.tags = list(tags)
@@ -535,7 +536,7 @@ class MossboundGuardianEnemy(BasicEnemy):
             if self.growthCooldown <= 0:
                 print(f"The {self.name}'s moss starts to grow once more!")
             return
-        self.shield += MossboundGuardianEnemy.REGROW_AMOUNT
+        self.tempHealth += MossboundGuardianEnemy.REGROW_AMOUNT
         print(f"{Fore.GREEN}The moss rapidly grows on the {self.name}.{Fore.RESET} (If only you could stop its growth...)")
 
     def Damage(self, attackInfo: AttInfo) -> bool:
@@ -554,6 +555,26 @@ class CarrionHorrorEnemy(BasicEnemy):
             gc.GiveRelicReward()
         return super().Kill()
 
+class IroncladEnemy(BasicEnemy):
+    def OnSpawn(self):
+        self.SetShield(50)
+        return super().OnSpawn()
+
+    def Damage(self, attackInfo):
+        from ElementTags import ElementTag
+        if attackInfo.HasElement(ElementTag.LIGHTNING):
+            print(f"{Fore.YELLOW}Lightning shocks the metalic armor around the {Style.BRIGHT}{self.name}{Style.NORMAL} stunning them!{Fore.RESET}")
+            self.ApplyStun(1)
+        return super().Damage(attackInfo)
+    
+class MagmaBeastEnemy(BasicEnemy):
+    WATER_ELEMENT_WEAKNESS_DAMAGE_MULT = 1.5
+    def Damage(self, attackInfo):
+        from ElementTags import ElementTag
+        if attackInfo.HasElement(ElementTag.WATER):
+            print(f"{Fore.BLUE}Water{Fore.RESET} cools down the beast damaging it even more!")
+            attackInfo.damage = round(attackInfo.damage * MagmaBeastEnemy.WATER_ELEMENT_WEAKNESS_DAMAGE_MULT)
+        return super().Damage(attackInfo)
 
 class Player(AEntity):
     def __init__(self):
@@ -667,7 +688,14 @@ class Player(AEntity):
             if gc.currentHitsRecievedCount % Relics.ClockworkBloodgear.DAMAGE_THRESHOLD == 0:
                 attackInfo.damage = round(attackInfo.damage * Relics.ClockworkBloodgear.DAMAGE_RECIEVED_BONUS)
 
+        shockAbsorberCount = self.GetRelicCount(Relics.ShockAbsorber)
+        if shockAbsorberCount > 0:
+            attackInfo.damage = min(attackInfo.damage, Relics.ShockAbsorber.MAX_DAMAGE_RECIEVED)
+
         result = super().Damage(attackInfo)
+
+        if shockAbsorberCount > 0:
+            self.AddShield(Relics.ShockAbsorber.SHIELD_GAIN * shockAbsorberCount)
 
         if result == True:
             wardensBulwarkCount = gc.playerCharacter.GetRelicCount(Relics.WardensBulwark)
