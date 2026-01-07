@@ -68,7 +68,7 @@ def Init():
     playerCharacter.GiveItem(Items.GetItemByName("Training Wooden Shield"))
     playerCharacter.GiveItem(Items.GetItemByName("Lesser Health Potion"))
 
-    playerCharacter.damageResistance -= ((float(setDifficulty.value) - 1) / 1) * 0.3
+    playerCharacter.damageResistance -= ((float(setDifficulty.value) - 1) / 1) * 0.25
 
     SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
 
