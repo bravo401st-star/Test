@@ -308,7 +308,7 @@ class BasicEnemy(AEntity):
             self.actionSet.Setup(self)
 
         # scale health by level
-        self.SetMaxHealth(round(self.maxHealth * (1 + 0.03 * (self.level - 1)) * float(gc.setDifficulty.value)), True)
+        self.SetMaxHealth(round(self.maxHealth * (1 + 0.06 * (self.level - 1)) * float(gc.setDifficulty.value)), True)
         return super().OnSpawn()
 
     def SetDropExp(self, xp: range | int):
