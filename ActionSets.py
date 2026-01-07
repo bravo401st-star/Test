@@ -4,7 +4,7 @@ from colorama import Fore
 
 goblin_action_set = AP.ActionSet()
 goblin_action_set.AppendAction(AP.AttackAction(10).SetName("Slash").SetShortDesc("Preparing to slash"))
-goblin_action_set.AppendAction(AP.AttackAction(20).SetName("Stab").SetShortDesc("Preparing to stab"))
+goblin_action_set.AppendAction(AP.AttackAction(8).SetName("Stab").SetShortDesc("Preparing to stab").SetAttackCount(2))
 goblin_action_set.AppendAction(AP.HealAction(10).SetName("Heal").SetShortDesc("Healing self").SetChance(0.5))
 
 goblin_necromancer_action_set = AP.ActionSet()

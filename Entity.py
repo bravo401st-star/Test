@@ -111,6 +111,8 @@ class AEntity(ABC):
     def RemoveEffectStack(self, effectType: type, amount: int = 1):
         try:
             effect = self.GetEffect(effectType)
+            if effect is None:
+                return
             effect.RemoveStack(amount)
         except:
             pass

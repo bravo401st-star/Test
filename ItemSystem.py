@@ -186,7 +186,15 @@ class Weapon(TargetUseableItem, LevelableItem):
         from colorama import Fore, Style
         from RomanNumerals import IntToRoman
         elementText = f"[{Fore.RESET}{Style.NORMAL}{self.elementType.value}{self.elementType.name}{Fore.RESET}{Style.NORMAL}] " if self.elementType is not None else ""
-        return f"[{Fore.YELLOW}{Style.BRIGHT}{IntToRoman(self.itemLevel)}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}"
+        effectText = str()
+        if self.effectToApply is not None:
+            try:
+                tempEffect = self.effectToApply(self, self.effectStacks)
+                effectText = f" - Applies: {tempEffect.GetName()}"
+            except Exception:
+                effectText = f" - Applies: {self.effectToApply.__name__}"
+        
+        return f"[{Fore.YELLOW}{Style.BRIGHT}{IntToRoman(self.itemLevel)}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}{effectText}"
 
     def OnUse(self, target: AEntity):
         from AttackInfo import AttInfo
@@ -196,7 +204,6 @@ class Weapon(TargetUseableItem, LevelableItem):
         super().OnUse(target)
 
         # skills
-
         uncheckedViolenceRank = SkillSystem.GetSkillNodeRank("sknd_uncheckedviolence")
         if uncheckedViolenceRank > 0:
             gc.playerCharacter.Damage(AttInfo(3, None, True))
@@ -204,7 +211,6 @@ class Weapon(TargetUseableItem, LevelableItem):
         seepingWoundRank = SkillSystem.GetSkillNodeRank("sknd_seepingwound")
         if seepingWoundRank > 0 and random.random() < SkillSystem.CARRION_SEEPING_WOUND_CHANCE * seepingWoundRank:
             StatusEffect.Apply(target, StatusEffect.InfectionEffect, 1)
-                
         #
 
         totalCritChance = gc.playerCharacter.critialHitChance + self.critChance
