@@ -32,6 +32,7 @@ class AEntity(ABC):
         self.thorns: int = 0
         self.tempHealth = 0
         self.maxTempHealth = 0
+        self.shieldStartOfTurnMult: float = 0.0
 
     def OnSpawn(self):
         pass
@@ -101,7 +102,7 @@ class AEntity(ABC):
             self.RemoveEffect(effect)
 
         if not self.HasEffect(StatusEffect.FortitudeEffect):
-            self.SetShield(0)
+            self.SetShield(round(self.shield * self.shieldStartOfTurnMult))
         pass
 
     def RemoveEffect(self, effect):
@@ -556,6 +557,10 @@ class CarrionHorrorEnemy(BasicEnemy):
         return super().Kill()
 
 class IroncladEnemy(BasicEnemy):
+    def __init__(self):
+        super().__init__()
+        self.shieldStartOfTurnMult = 1.0
+        
     def OnSpawn(self):
         self.SetShield(50)
         return super().OnSpawn()
