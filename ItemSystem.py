@@ -150,7 +150,7 @@ class ShieldItem(UseableItem):
     
     def CalculateShieldGain(self):
         bulwarkGuidebookBonus = self.shieldAmount * gc.playerCharacter.GetRelicCount(Relics.BulwarkGuidebook) * Relics.BulwarkGuidebook.SHIELD_ITEM_BONUS
-        return self.shieldAmount + bulwarkGuidebookBonus
+        return int(self.shieldAmount + bulwarkGuidebookBonus)
 
 
 class TargetUseableItem(UseableItem):
