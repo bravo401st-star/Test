@@ -3,7 +3,7 @@ import ActionSets
 from EnemyTags import EnemyTag
 
 __enemy_pool__ = [
-    Entity.BasicEnemy().SetName("Goblin").SetMaxHealth(45, setHealthToo=True).SetDropExp(range(1, 3)).AttachActionSet(ActionSets.goblin_action_set),
+    Entity.BasicEnemy().SetName("Goblin").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(1, 3)).AttachActionSet(ActionSets.goblin_action_set),
     Entity.NecromancerEnemy().SetName("Goblin Necromancer").SetMaxHealth(30, setHealthToo=True).SetDropExp(range(2, 4)).AttachActionSet(ActionSets.goblin_necromancer_action_set),
     Entity.BasicEnemy().SetName("Granite Golem").SetMaxHealth(105, setHealthToo=True).SetDropExp(range(7, 10)).AttachActionSet(ActionSets.granite_golem_action_set),
     Entity.BasicEnemy().SetName("Dire Wolf").SetMaxHealth(40, setHealthToo=True).SetDropExp(range(1, 3)).AttachActionSet(ActionSets.dire_wolf_action_set),
@@ -23,7 +23,7 @@ __enemy_pool__ = [
     Entity.BasicEnemy().SetName("Thornback Tortoise").SetMaxHealth(100, setHealthToo=True).SetDropExp(range(1,6)).AttachActionSet(ActionSets.thornback_action_set),
     #Entity.BasicEnemy().SetName("Hollowed Prophet").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2,4)),
     #Entity.BasicEnemy().SetName("Cultist"),
-    Entity.IroncladEnemy().SetName("Ironclad Marshal").SetMaxHealth(65, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.ironclad_action_set),
+    Entity.IroncladEnemy().SetName("Ironclad Marshal").SetMaxHealth(20, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.ironclad_action_set),
     Entity.MagmaBeastEnemy().SetName("Magmatic Beast").SetMaxHealth(36, setHealthToo=True).SetDropExp(range(2,4)).AttachActionSet(ActionSets.magma_beast_action_set),
     #Entity.BasicEnemy().SetName("Slime"),
     #Entity.BasicEnemy().SetName("Mimic"),

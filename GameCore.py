@@ -147,6 +147,7 @@ def OnEntityDie(entity: Entity.AEntity | None):
             if issubclass(type(enemy), Entity.NecromancerEnemy):
                 enemy.TryToRaiseDead(entity) # pyright: ignore[reportAttributeAccessIssue]
                 break
+            enemy.actionSet.ValidateCurrentAction()
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
@@ -170,7 +171,7 @@ def GetCountOfEntityType(entityType: type) -> int:
 
     return count
 
-def GetAllEnemiesOfType(entityType: type) -> list | None:
+def GetAllEnemiesOfType(entityType: type) -> list[Entity.AEntity] | None:
     global enemiesInScene
     enemiesOfType = []
     if not issubclass(entityType, Entity.AEntity):

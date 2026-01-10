@@ -3,6 +3,7 @@ import GameCore as gc
 import random
 import Entity
 from ElementTags import ElementTag
+from EnemyTags import EnemyTag
 from colorama import Fore, Style
 
 # Action Types
@@ -124,15 +125,23 @@ class ShieldRandomAlly(AAction):
         self.timesToPerform = times
 
     def PerformAction(self):
-        for i in range(self.timesToPerform):
-            allyToShield = random.choice(gc.enemiesInScene)
+        import copy
+        li = copy.copy(gc.enemiesInScene)
+        if self.parentEntity in li:
+            li.remove(self.parentEntity)
+        if len(li) <= 0:
+            return super().PerformAction()
+        for _ in range(self.timesToPerform):
+            allyToShield = random.choice(li)
             allyToShield.AddShield(self.shieldAmount)
             print(f"{self.parentEntity.name} shielded {allyToShield.name} for {self.shieldAmount}!")
         return super().PerformAction()
     
     def GetShortDesc(self):
         return super().GetShortDesc() + f" for {self.shieldAmount}, {self.timesToPerform} times"
-    pass
+    
+    def CanDoAction(self):
+        return len(gc.enemiesInScene) > 1
     
 class HealRandomUndeadAction(AAction):
     def __init__(self, healing: int):
@@ -141,10 +150,10 @@ class HealRandomUndeadAction(AAction):
         self.actionColor = Fore.YELLOW
 
     def CanDoAction(self):
-        return gc.GetRandomEnemyByTag("Undead") != None
+        return gc.GetRandomEnemyByTag(EnemyTag.UNDEAD) != None
     
     def GetRandomUndead(self):
-        return gc.GetRandomEnemyByTag("Undead")
+        return gc.GetRandomEnemyByTag(EnemyTag.UNDEAD)
 
     def PerformAction(self):
         undeadToHeal = self.GetRandomUndead()
@@ -397,6 +406,11 @@ class ActionSet():
         for act in self.actions:
             act.parentEntity = entity
         self.SetCurrentAction(self.actionIndex)
+        self.ValidateCurrentAction()
+
+    def ValidateCurrentAction(self):
+        if not self.GetNextAction().CanDoAction():
+            self.SetCurrentAction(self.CycleNextAction())
 
     def GetNextAction(self, index: int | None = None) -> AAction | None:
         if len(self.actions) <= 0:
@@ -426,6 +440,15 @@ class ActionSet():
         if (self.toRepeat > self.currentActionPerformedCount):
             return
 
+        self.SetCurrentAction(self.CycleNextAction())
+
+    def AppendAction(self, action: AAction):
+        if issubclass(type(action), AAction) != True:
+            raise TypeError(f"Type {type(action)} is not an Action!")
+        
+        self.actions.append(action)
+
+    def CycleNextAction(self):
         # Cycle to find next availible action to take
         index = self.actionIndex
         while True:
@@ -444,13 +467,7 @@ class ActionSet():
             if (random.random() <= nextAction.chance and nextAction.CanDoAction()):
                 break
             limit -= 1
-        self.SetCurrentAction(index)
-
-    def AppendAction(self, action: AAction):
-        if issubclass(type(action), AAction) != True:
-            raise TypeError(f"Type {type(action)} is not an Action!")
-        
-        self.actions.append(action)
+        return index
 
     def GetActionByName(self, name: str) -> AAction | None:
         for action in self.actions:
