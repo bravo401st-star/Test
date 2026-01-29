@@ -72,12 +72,13 @@ def Init():
 
     SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
 
-def SpawnEnemy(enemy: Entity.BasicEnemy | None, force: bool = False):
+def SpawnEnemy(enemy: Entity.BasicEnemy | None, force: bool = False, cacheToScene: bool = True):
     global enemiesInScene
     global MAX_ENEMIES_IN_SCENE
     if enemy == None or (len(enemiesInScene) >= MAX_ENEMIES_IN_SCENE and not force):
         return
-    enemiesInScene.append(enemy)
+    if cacheToScene:
+        enemiesInScene.append(enemy)
     enemy.OnSpawn()
     print(f"A [LVL {enemy.level}]" + Fore.RED + Style.BRIGHT + enemy.name + Style.RESET_ALL + " has appeared!")
     pass
@@ -231,6 +232,7 @@ def GiveRelicReward(relic = None):
 
 def ChooseNextEvent():
     import GameEvent as ge
+    from Entity import BasicEnemy
     eventRoll = random.randrange(0, 100)
     if (eventRoll < 50):
         event = ge.GetRandomEvent()
@@ -239,11 +241,13 @@ def ChooseNextEvent():
 
     # Next encounter
     print("You venture deeper into the wilderness...")
-    for i in range(0, random.randrange(1, 2 + playerCharacter.level.level // 5)):
+    for _ in range(0, random.randrange(1, 2 + playerCharacter.level.level // 5)):
         level = max(1, playerCharacter.level.level + random.randrange(-5, 3))
-        enemy = Enemies.CreateRandomEnemy(1, level)
-        if enemy is not None: 
-            SpawnEnemy(enemy)
+        enemy: BasicEnemy | None = Enemies.CreateRandomEnemy(1, level)
+        if enemy is None:
+            continue
+        enemiesInScene.append(enemy)
+        SpawnEnemy(enemy)
 
     OnCombatStart()
 
@@ -266,6 +270,7 @@ def OnCombatStart():
     playerCharacter.bonusAttacks = 0
     playerCharacter._ironWillReady = True
     playerCharacter._unbreakableReady = True
+    playerCharacter.HandleNewTurn()
 
     if playerCharacter.HasRelic(Relics.TimewornHourglass):
         playerCharacter.shield += Relics.TimewornHourglass.SHIELD_AMOUNT
@@ -347,6 +352,9 @@ def ProcessEnemyTurn():
     # Don't bother if there are no enemies
     if len(tmpList) <= 0:
         return
+    
+    for enemy in tmpList:
+        enemy.HandleNewTurn()
     
     print("Processing enemy turn!\n")
     for enemy in tmpList:

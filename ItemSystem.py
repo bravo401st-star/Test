@@ -190,6 +190,7 @@ class Weapon(TargetUseableItem, LevelableItem):
         self.critChance = 0.0
         self.critDamageMult = 1.0
         self.elementType: ElementTag | None = None
+        self.armorPierce: float = 0.0
 
     def GetDesc(self):
         from colorama import Fore, Style
@@ -202,8 +203,10 @@ class Weapon(TargetUseableItem, LevelableItem):
                 effectText = f" - Applies: {tempEffect.GetName()}"
             except Exception:
                 effectText = f" - Applies: {self.effectToApply.__name__}"
+
+        pierceText = f" - Pierces {int(self.armorPierce * 100)}% shield" if self.armorPierce > 0 else ""
         
-        return f"[{Fore.YELLOW}{Style.BRIGHT}{IntToRoman(self.itemLevel)}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}{effectText}"
+        return f"[{Fore.YELLOW}{Style.BRIGHT}{IntToRoman(self.itemLevel)}{Style.NORMAL}{Fore.RESET}] {elementText}" + super().GetDesc() + f" - Damage: {self.GetDamage()}{effectText}" + pierceText
 
     def OnUse(self, target: AEntity):
         from AttackInfo import AttInfo
@@ -220,14 +223,13 @@ class Weapon(TargetUseableItem, LevelableItem):
         seepingWoundRank = SkillSystem.GetSkillNodeRank("sknd_seepingwound")
         if seepingWoundRank > 0 and random.random() < SkillSystem.CARRION_SEEPING_WOUND_CHANCE * seepingWoundRank:
             StatusEffect.Apply(target, StatusEffect.InfectionEffect, 1)
-        #
 
         totalCritChance = gc.playerCharacter.critialHitChance + self.critChance
         isCrit = random.random() < totalCritChance
         if gc.playerHasAttackedThisTurn == False and gc.playerCharacter.HasRelic(Relics.OraclesWhisper) and gc.isFirstTurn:
             isCrit = True
         gc.playerHasAttackedThisTurn = True
-        attackInfo = AttInfo(self.GetDamage(), gc.playerCharacter)
+        attackInfo = AttInfo(self.GetDamage(), gc.playerCharacter, False, self.armorPierce)
 
         if self.elementType is not None:
             attackInfo.AddElements(self.elementType)
@@ -277,6 +279,10 @@ class Weapon(TargetUseableItem, LevelableItem):
 
     def SetDamage(self, damage: int):
         self.baseDamage = damage
+        return self
+    
+    def SetPierce(self, amount: float):
+        self.armorPierce = amount
         return self
     
     def GetDamage(self) -> int:
@@ -577,7 +583,7 @@ class EffectPotion(Potion):
 itemsList = [
     # === BASIC WEAPONS ===
     Weapon().SetName("Rusty Sword").SetRarity(95).SetUseCost(2).SetDamage(15),
-    Weapon().SetName("Wooden Club").SetRarity(92).SetUseCost(2).SetDamage(16),
+    Weapon().SetName("Wooden Club").SetRarity(92).SetUseCost(2).SetDamage(16).SetPierce(0.4),
     Weapon().SetName("Iron Dagger").SetRarity(80).SetUseCost(1).SetDamage(8),
     Weapon().SetName("Steel Sword").SetRarity(75).SetUseCost(2).SetDamage(22),
     Weapon().SetName("Torch").SetRarity(80).SetUseCost(1).SetDamage(5).SetElement(ElementTag.FIRE),
@@ -585,7 +591,7 @@ itemsList = [
     # === INTERMEDIATE WEAPONS ===
     Weapon().SetName("Adventurer's Sword").SetRarity(60).SetUseCost(2).SetDamage(25),
     Weapon().SetName("Iron Longsword").SetRarity(55).SetUseCost(2).SetDamage(28),
-    Weapon().SetName("Mace").SetRarity(50).SetUseCost(3).SetDamage(42),
+    Weapon().SetName("Mace").SetRarity(50).SetUseCost(3).SetDamage(42).SetPierce(1.0),
     Weapon().SetName("Battle Axe").SetRarity(45).SetUseCost(3).SetDamage(48),
     Weapon().SetName("Dagger").SetRarity(65).SetUseCost(1).SetDamage(9),
     
@@ -595,7 +601,8 @@ itemsList = [
     Weapon().SetName("Venom Fang").SetRarity(18).SetUseCost(1).SetDamage(14).SetEffectToApply(StatusEffect.PoisonEffect, 2),
     Weapon().SetName("Serrated Blade").SetRarity(25).SetUseCost(2).SetDamage(18).SetEffectToApply(StatusEffect.BleedEffect),
     RapidfireWeapon().SetName("Shank").SetRarity(48).SetUseCost(1).SetDamage(3).SetAttackCount(4).SetEffectToApply(StatusEffect.BleedEffect),
-    
+    RapidfireWeapon().SetName("Rapier").SetRarity(40).SetUseCost(2).SetDamage(6).SetAttackCount(3).SetPierce(0.75),
+
     # === RAPIDFIRE WEAPONS ===
     RapidfireWeapon().SetName("Throwing Knives").SetRarity(40).SetUseCost(1).SetDamage(4).SetAttackCount(3),
     RapidfireWeapon().SetName("Twin Hatchets").SetRarity(12).SetUseCost(2).SetDamage(16).SetAttackCount(2),
@@ -614,7 +621,7 @@ itemsList = [
     
     # === LEGENDARY & RARE WEAPONS ===
     Weapon().SetName("Excalibur").SetRarity(1).SetUseCost(2).SetDamage(65),
-    Weapon().SetName("Warhammer").SetRarity(6).SetUseCost(4).SetDamage(62),
+    Weapon().SetName("Warhammer").SetRarity(6).SetUseCost(4).SetDamage(62).SetPierce(1.5),
     Weapon().SetName("Dragon Slayer").SetRarity(2).SetUseCost(3).SetDamage(58),
     Weapon().SetName("Cursed Blade").SetRarity(4).SetUseCost(2).SetDamage(55).SetEffectToApply(StatusEffect.BleedEffect, 5),
     

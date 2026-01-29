@@ -100,10 +100,12 @@ class AEntity(ABC):
 
         for effect in effectsToRemove:
             self.RemoveEffect(effect)
+        pass
 
+    def HandleNewTurn(self):
+        import StatusEffect
         if not self.HasEffect(StatusEffect.FortitudeEffect):
             self.SetShield(round(self.shield * self.shieldStartOfTurnMult))
-        pass
 
     def RemoveEffect(self, effect):
         self.effects.remove(effect)
@@ -175,11 +177,12 @@ class AEntity(ABC):
         
         # Deduct from shield first
         if self.shield > 0 and attackInfo.damage > 0:
+            shieldDamage = abs(int(attackInfo.damage * (1.0 - attackInfo.shieldPierce)))
             blocked = 0
-            if attackInfo.damage <= self.shield:
-                self.AddShield(-attackInfo.damage)
-                blocked = attackInfo.damage
-                attackInfo.damage = 0
+            if shieldDamage <= self.shield:
+                self.AddShield(-shieldDamage)
+                blocked = shieldDamage
+                attackInfo.damage -= shieldDamage
             else:
                 attackInfo.damage -= self.shield
                 blocked = self.shield
