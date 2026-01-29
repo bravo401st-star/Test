@@ -160,15 +160,18 @@ class AEntity(ABC):
     def OnEvade(self, attackInfo: AttInfo):
         print(f"{self.name} evaded the attack!")
 
-    def Damage(self, attackInfo: AttInfo) -> bool:
-        if self.health <= 0:
-            return False
+    def Damage(self, attackInfo: AttInfo) -> int:
+        from ElementTags import ElementTag
+        from StatusEffect import OnFireEffect, Apply
+        if self.health <= 0 or attackInfo.damage == 0:
+            return 0
         if not attackInfo.ignoresEvasion and self.CheckEvasion():
             self.OnEvade(attackInfo)
-            return False
+            return 0
         
         # Apply damage resistance
         attackInfo.damage -= int(attackInfo.damage * self.GetDamageResist())
+        initalAttackDamageBeforeBlocked = attackInfo.damage
         
         # Deduct from shield first
         if self.shield > 0 and attackInfo.damage > 0:
@@ -200,6 +203,8 @@ class AEntity(ABC):
         
         if attackInfo.damage > 0:
             print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
+            if attackInfo.HasElement(ElementTag.FIRE) and random.random() <= 0.5:
+                Apply(self, OnFireEffect, 1)
 
         # Finally to health
         self.health -= attackInfo.damage
@@ -213,7 +218,7 @@ class AEntity(ABC):
                     attacker.Heal(heal_amount)
             
             if self.damageReflect > 0:
-                reflected = round(attackInfo.damage * self.damageReflect)
+                reflected = round(initalAttackDamageBeforeBlocked * self.damageReflect)
                 attacker.Damage(AttInfo(reflected))
                 print(f"{Fore.RED}{self.name} reflected {Style.BRIGHT}{reflected}{Style.NORMAL} damage back at {attacker.name}!{Fore.RESET}")
             
@@ -222,7 +227,7 @@ class AEntity(ABC):
         
         if self.health <= 0:
             self.Kill()
-        return True
+        return attackInfo.damage
 
     def CheckEvasion(self) -> bool:
         if (self.GetEvasion() <= 0.0):
@@ -233,6 +238,9 @@ class AEntity(ABC):
         return False
 
     def Heal(self, amount: int):
+        if amount == 0:
+            return False
+        
         amount = round(amount * self.healingMultiplier)
         
         self.health += amount
@@ -395,7 +403,7 @@ class BasicEnemy(AEntity):
 
         return super().Kill()
     
-    def Damage(self, attackInfo: AttInfo) -> bool:
+    def Damage(self, attackInfo: AttInfo) -> int:
         import SkillSystem
 
         executionersMarkCount = gc.playerCharacter.GetRelicCount(Relics.ExecutionersMark)
@@ -417,10 +425,7 @@ class BasicEnemy(AEntity):
             if serratedBlowsRank > 0 and random.random() < SkillSystem.VAMPIRIC_SERRATED_BLOWS_CHANCE * serratedBlowsRank:
                 StatusEffect.Apply(self, StatusEffect.BleedEffect, 1)
 
-        if not super().Damage(attackInfo):
-            return False
-
-        return True
+        return super().Damage(attackInfo)
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
         self.actionSet = copy.deepcopy(actionSet)
@@ -540,7 +545,7 @@ class MossboundGuardianEnemy(BasicEnemy):
         self.tempHealth += MossboundGuardianEnemy.REGROW_AMOUNT
         print(f"{Fore.GREEN}The moss rapidly grows on the {self.name}.{Fore.RESET} (If only you could stop its growth...)")
 
-    def Damage(self, attackInfo: AttInfo) -> bool:
+    def Damage(self, attackInfo: AttInfo) -> int:
         from ElementTags import ElementTag
         if attackInfo.HasElement(ElementTag.FIRE):
             print(f"{Fore.RED}Fire burns the {Style.BRIGHT}{self.name}{Style.NORMAL} and prevents it's growth!{Style.RESET_ALL}")
@@ -560,7 +565,7 @@ class IroncladEnemy(BasicEnemy):
     def __init__(self):
         super().__init__()
         self.shieldStartOfTurnMult = 1.0
-        
+
     def OnSpawn(self):
         self.SetShield(50)
         return super().OnSpawn()
@@ -677,13 +682,13 @@ class Player(AEntity):
                 count += 1
         return count
 
-    def Damage(self, attackInfo: AttInfo):
+    def Damage(self, attackInfo: AttInfo) -> int:
         from ElementTags import ElementTag
         import StatusEffect
         import SkillSystem
         if (gc.godmode):
             print(f"Godly power has blocked {attackInfo.damage} damage.")
-            return
+            return 0
         
         verdantCrestCount = self.GetRelicCount(Relics.VerdantCrest)
         if verdantCrestCount > 0 and attackInfo.HasElement(ElementTag.FIRE):
@@ -702,7 +707,7 @@ class Player(AEntity):
         if shockAbsorberCount > 0:
             self.AddShield(Relics.ShockAbsorber.SHIELD_GAIN * shockAbsorberCount)
 
-        if result == True:
+        if result != 0:
             wardensBulwarkCount = gc.playerCharacter.GetRelicCount(Relics.WardensBulwark)
             if wardensBulwarkCount > 0 and attackInfo.damage > Relics.WardensBulwark.DAMAGE_THRESHOLD:
                 self.shield += Relics.WardensBulwark.GRANTED_DEFENSE * wardensBulwarkCount

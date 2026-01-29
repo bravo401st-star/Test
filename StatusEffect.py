@@ -167,6 +167,31 @@ class BlessedEffect(AEffect):
     def GetName(self):
         return f"{Fore.YELLOW}{Style.BRIGHT}Blessed{Style.NORMAL}{Fore.RESET}"
     
+class OnFireEffect(AEffect):
+    CHANCE_TO_SPREAD: float = 0.7
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} erupts into flame!")
+        return super().OnEffectApply()
+    
+    def AddStack(self, count = 1):
+        print(f"The flames grow on {self.attachedEntity.name}")
+        return super().AddStack(count)
+    
+    def OnEffectTick(self):
+        import random
+        import GameCore as gc
+        from ElementTags import ElementTag
+        # chance to spread to random enemy
+        if random.random() <= OnFireEffect.CHANCE_TO_SPREAD and len(gc.enemiesInScene) > 0:
+            entity: AEntity = random.choice(gc.enemiesInScene)
+            print(f"The flames spread to {entity.name}")
+            Apply(entity, OnFireEffect, 1)
+        self.attachedEntity.Damage(AttInfo(random.randrange(3, 16), None, True).AddElements(ElementTag.FIRE))
+        return super().OnEffectTick()
+    
+    def GetName(self):
+        return f"{Fore.RED}{Style.BRIGHT}On Fire{Style.NORMAL}{Fore.RESET}"
+    
 class RegenerationEffect(AEffect):
     positive: bool = True
 

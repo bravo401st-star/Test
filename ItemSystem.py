@@ -252,7 +252,7 @@ class Weapon(TargetUseableItem, LevelableItem):
         if gc.playerCharacter.HasRelic(Relics.MalformedTenticle):
             random.choice(gc.enemiesInScene).Damage(AttInfo(5, None, True))
 
-        target.Damage(attackInfo)
+        self.DealDamage(attackInfo, target)
         bloodOiledChainCount = gc.playerCharacter.GetRelicCount(Relics.BloodOiledChain)
         if bloodOiledChainCount > 0:
             Relics.bloodOiledChainBonusDamagePerAttack += Relics.BloodOiledChain.BONUS_DAMAGE * bloodOiledChainCount
@@ -262,6 +262,9 @@ class Weapon(TargetUseableItem, LevelableItem):
 
         if gc.playerCharacter.HasRelic(Relics.GlitteringAmulet) and random.random() < Relics.GlitteringAmulet.CHANCE_TO_APPLY_DEBUFF:
             StatusEffect.Apply(target, StatusEffect.GetRandomEffect(negative=True, positive=False), 1)
+
+    def DealDamage(self, attackInfo, target: AEntity) -> int:
+        return target.Damage(attackInfo)
         
     def CheckCanUse(self) -> bool:
         return super().CheckCanUse() or gc.playerCharacter.bonusAttacks > 0
@@ -322,9 +325,10 @@ class LifestealWeapon(Weapon):
     def GetDesc(self):
         return super().GetDesc() + " - Heals for half damage dealt."
 
-    def OnUse(self, target):
-        gc.playerCharacter.Heal(self.GetDamage() // 2)
-        super().OnUse(target)
+    def DealDamage(self, attackInfo, target: AEntity) -> int:
+        result = super().DealDamage(attackInfo, target)
+        gc.playerCharacter.Heal(result // 2)
+        return result
 
 class RapidfireWeapon(Weapon):
     def __init__(self):
