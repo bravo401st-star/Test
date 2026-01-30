@@ -247,7 +247,7 @@ def ChooseNextEvent():
         if enemy is None:
             continue
         enemiesInScene.append(enemy)
-        SpawnEnemy(enemy)
+        SpawnEnemy(enemy, False, False)
 
     OnCombatStart()
 
