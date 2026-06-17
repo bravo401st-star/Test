@@ -136,7 +136,7 @@ class ShieldItem(UseableItem):
         from AttackInfo import AttInfo
         shieldGain = self.CalculateShieldGain()
         gc.playerCharacter.AddShield(shieldGain)
-        print(f"{Fore.MAGENTA}You brace your self using your {Style.BRIGHT}{self.name}{Style.NORMAL} gaining {Style.BRIGHT}{Fore.CYAN}{shieldGain}{Style.NORMAL}{Fore.MAGENTA} shield.{Fore.RESET}")
+        print(f"{Fore.MAGENTA}You brace your self using your {Style.BRIGHT}{self.name}{Style.NORMAL} gaining {Style.BRIGHT}{Fore.CYAN}{round(shieldGain * gc.playerCharacter.shieldMultiplier)}{Style.NORMAL}{Fore.MAGENTA} shield.{Fore.RESET}")
         if gc.playerCharacter.HasRelic(Relics.BulwarkGuidebook):
             random.choice(gc.enemiesInScene).Damage(AttInfo(shieldGain, gc.playerCharacter))
         return super().OnUse()
@@ -146,11 +146,11 @@ class ShieldItem(UseableItem):
         return self
     
     def GetDesc(self):
-        return super().GetDesc() + f" - SHIELD: {self.CalculateShieldGain()}"
+        return super().GetDesc() + f" - SHIELD: {round(self.CalculateShieldGain() * gc.playerCharacter.shieldMultiplier)}"
     
     def CalculateShieldGain(self):
         bulwarkGuidebookBonus = self.shieldAmount * gc.playerCharacter.GetRelicCount(Relics.BulwarkGuidebook) * Relics.BulwarkGuidebook.SHIELD_ITEM_BONUS
-        return int(self.shieldAmount + bulwarkGuidebookBonus)
+        return int((self.shieldAmount + bulwarkGuidebookBonus))
 
 
 class TargetUseableItem(UseableItem):
@@ -498,10 +498,9 @@ class SmokeBomb(UseableItem):
         return super().Use()
     
     def OnUse(self):
-        # clear enemies from scene
-        for enemy in reversed(gc.enemiesInScene):
-            gc.RemoveEnemyFromScene(enemy)
-        gc.CheckEncounterStatus(False)
+        import Commands
+        if Commands.ValidateEscapability():
+            Commands.ForceEscape()
 
         return super().OnUse()
     

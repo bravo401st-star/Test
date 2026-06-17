@@ -96,6 +96,7 @@ command_map = {
     "showinfo": Command("c_showinfo", "Show info of player at all times"),
     "clear": Command("c_clear", "Clears the console"),
     "skills": Command("c_skills", "View and invest in skill trees"),
+    "escape": Command("c_escape", "Attempt to escape from combat"),
 
     # CHEAT COMMANDS
     "give-item": Command("c_spawnitem", "Spawns item", True).SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
@@ -109,7 +110,8 @@ command_map = {
     "give-gold": Command("c_givegold", "Give gold", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, False)),
     "give-relic": Command("c_giverelic", "Give relic", True).SetParams(CommandParam.Parameter("relicIndex", CommandParam.IntArgument, True)),
     "relic-list": Command("c_reliclist", "Shows all relics in game by index", True),
-    "give-skillpoint": Command("c_giveskillpoint", "Gives the player skill point(s)", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, True))
+    "give-skillpoint": Command("c_giveskillpoint", "Gives the player skill point(s)", True).SetParams(CommandParam.Parameter("amount", CommandParam.IntArgument, True)),
+    "trigger-encounter": Command("c_triggerencounter", "Triggers an encounter", True)
 }
 
 def c_clear():
@@ -370,7 +372,7 @@ def c_entitylist():
     index = 0
     import EnemyList as EList
     for entity in EList.__enemy_pool__:
-        print(f"{index}: {entity.name}")
+        print(f"{index}: {entity.name} [{Fore.RED}{Enemies.EvaluateEnemyDanger(entity)}{Fore.RESET}]")
         index += 1
     pass
 
@@ -460,6 +462,7 @@ def c_status():
     print(f"Critical Hit Damage Multiplier: {round(gc.playerCharacter.criticalHitMultiplier * 100, 2)}%")
     print(f"Additional Raw Damage: {gc.playerCharacter.additionalRawDamage}")
     print(f"Damage Multiplier: {round(gc.playerCharacter.outgoingDamageMultiplier * 100, 2)}%")
+    print(f"Shield Multiplier: {round(gc.playerCharacter.shieldMultiplier * 100, 2)}%")
     print(f"Gold Multiplier: {round(gc.playerCharacter.goldMultiplier * 100, 2)}%")
     print(f"Experience Multiplier: {round(gc.playerCharacter.experienceMultiplier * 100, 2)}%")
     print(f"Loot Multiplier: {round((gc.playerCharacter.lootDropChance) * 100, 2)}%")
@@ -484,6 +487,7 @@ def c_entities():
 
 def PrintOutEntityList():
     from Entity import AEntity
+    from EnemyTags import EnemyTag
     effectsText = gc.playerCharacter.GetEffectListText()
     print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}{gc.playerCharacter.GetBonusHealthText()}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
     index = 2
@@ -494,14 +498,17 @@ def PrintOutEntityList():
         action = enemy.actionSet.GetNextAction()
         actionText = "[Just chillin']"
         if action is not None:
-            actionText = f"!![{Style.BRIGHT}{action.actionColor}{action.GetShortDesc()}{Style.RESET_ALL}]!!"
+            actionText = f"!![{Style.BRIGHT}{action.actionColor}{action.GetShortDesc()}{Style.NORMAL}{Fore.RESET}]!!{Style.RESET_ALL}"
 
         # Handle effects text
         effectsText = enemy.GetEffectListText()
         if enemy.stunCount > 0:
             actionText = f" {Fore.MAGENTA}{Style.BRIGHT}[STUNNED]{Style.RESET_ALL}"
 
-        print(f"{index}: {enemy.name} [HP: {enemy.health}{enemy.GetBonusHealthText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
+        nameColor = Fore.RED if enemy.HasTag(EnemyTag.BOSS) else Fore.RESET
+        immunityHintColor = Back.LIGHTBLACK_EX if enemy.HasTag(EnemyTag.IMMUNE_TO_DAMAGE) else Back.RESET
+
+        print(f"{immunityHintColor}{index}: {nameColor}{enemy.name}{Fore.RESET} [HP: {enemy.health}{enemy.GetBonusHealthText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
 
 def c_event():
@@ -564,6 +571,27 @@ def c_quit():
         gc.gameRunning = False
         print("Quitting game...")
 
+def c_triggerencounter():
+    import Encounters as enc
+    
+    allEncounters = enc.GetAllEncounters()
+    
+    while True:
+        for i, encounter in enumerate(allEncounters, 1):
+            print(f"{i}. {encounter.name}\n\t˪{encounter.description}\n")
+        choice = input("Enter encounter number: ")
+        if (choice.isdigit()):
+            digit = int(choice) - 1
+            if digit < 0 or digit >= len(allEncounters):
+                print("Invalid input.")
+                continue
+
+            encounter = allEncounters[digit]
+            gc.StartEncounter(encounter)
+            return
+
+        c_clear()
+        print("Invalid input.")
 
 def c_inventory(args: list):
     PrintOutInventory()
@@ -594,6 +622,39 @@ def c_inventory(args: list):
         c_use_item_param_only(index + 1)
     else:
         print("Invalid action for inventory command!")
+
+def ForceEscape():
+    # clear enemies from scene
+        for enemy in reversed(gc.enemiesInScene):
+            gc.RemoveEnemyFromScene(enemy)
+        gc.CheckEncounterStillHasEnemies(False)
+
+def ValidateEscapability() -> bool:
+    if gc.currentEncounterReference == None:
+        print("You can only escape during an encounter!")
+        return False
+    
+    if gc.currentEncounterReference.escapeAllowed == False:
+        print(f"{Fore.RED}{Style.BRIGHT}Escape is not allowed in this encounter!{Style.RESET_ALL}")
+        return False
+    return True
+
+def c_escape():
+    import random
+    if not ValidateEscapability():
+        return
+
+    escapeChance = 0.1
+    escapeChance += gc.playerCharacter.GetEvasion() * 0.5 # Evasion should contribute to escape chance
+    if PromptYesNoQuestion(f"Are you sure you want to attempt an escape? [{Fore.RED}{Style.BRIGHT}{escapeChance * 100:.0f}%{Style.RESET_ALL}] (Costs 1 stamina)", False):
+        if gc.playerCharacter.stamina <= 0:
+            print("Not enough stamina to escape!")
+            return
+        gc.playerCharacter.stamina -= 1
+        if random.random() < escapeChance:
+            ForceEscape()
+        else:
+            print("Escape failed!")
     
 
 def PrintOutInventory():
@@ -608,7 +669,7 @@ def PrintOutInventory():
             text += backFill if gc.playerCharacter.stamina < item.useCost else ""
         text += str(index) + ": " + "[" + item.tag.upper() + "] " + item.GetDesc()
         if (useableFlag and item.useCount > 0):
-            text += " [" + str(item.useCount) + " Uses]"
+            text += f" [{Fore.YELLOW}" + str(item.useCount) + f" Use{'s' if item.useCount > 1 else ''}{Fore.RESET}" + "]"
         text += Style.RESET_ALL
         print(text)
         index += 1
@@ -668,6 +729,10 @@ def UseItemOn(itemIndex, targetIndex: int | None):
     isTargetItem = issubclass(type(item), ItemSystem.TargetUseableItem)
 
     if (targetIndex is not None and isTargetItem):
+        import random, StatusEffect
+        if gc.playerCharacter.HasEffect(StatusEffect.MadnessEffect) and random.random() < 0.5: # 50% chance to target random entity instead of chosen target
+            target = gc.playerCharacter # target player instead
+            print(f"{Fore.MAGENTA}{Style.BRIGHT}Madness causes you to lose control of the item and use it on {target.name}!{Style.RESET_ALL}")
         item.Use(target)
         return
     
@@ -690,7 +755,7 @@ def c_use_item_param_only(itemIndex: int):
         UseItemOn(itemIndex, None)
         return
     PrintOutEntityList()
-    target = input("Select target to use on (leave blank to default player): ")
+    target = input(f"Select target to use {Fore.GREEN}{item.name}{Fore.RESET} on (leave blank to default player): ")
     if target.strip() == '':
         target = "1"
 

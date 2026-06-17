@@ -1,3 +1,4 @@
+import Encounters
 import Items
 import Entity
 import Enemies
@@ -20,6 +21,8 @@ isFirstTurn = True
 currentTurn = 1
 currentAttacksCount = 0
 currentHitsRecievedCount = 0
+currentEncounterReference: Encounters.ABaseEncounter | None = None
+totalEncountersCompleted = 0
 
 # Game settings
 class EDifficulty(str, Enum):
@@ -70,7 +73,7 @@ def Init():
 
     playerCharacter.damageResistance -= ((float(setDifficulty.value) - 1) / 1) * 0.25
 
-    SpawnEnemy(Enemies.CreateEnemyByName("Goblin"))
+    StartEncounter(Encounters.FirstEncounter())
 
 def SpawnEnemy(enemy: Entity.BasicEnemy | None, force: bool = False, cacheToScene: bool = True):
     global enemiesInScene
@@ -148,7 +151,7 @@ def OnEntityDie(entity: Entity.AEntity | None):
             if issubclass(type(enemy), Entity.NecromancerEnemy):
                 enemy.TryToRaiseDead(entity) # pyright: ignore[reportAttributeAccessIssue]
                 break
-            enemy.actionSet.ValidateCurrentAction()
+            enemy.actionSet.ValidateCurrentAction(False)
     pass
 Entity.e_EntityDeath.Subscribe(OnEntityDie)
 
@@ -184,24 +187,40 @@ def GetAllEnemiesOfType(entityType: type) -> list[Entity.AEntity] | None:
 
     return enemiesOfType
 
-def CheckEncounterStatus(allowReward: bool = True):
+def GetAllEnemiesOfName(enemyName: str):
+    global enemiesInScene
+    enemiesOfName = []
+    for enemy in enemiesInScene:
+        if enemy.name.lower() == enemyName.lower():
+            enemiesOfName.append(enemy)
+
+    return enemiesOfName
+
+def CheckEncounterStillHasEnemies(allowReward: bool = True):
     import Commands
+    global currentEncounterReference
     global enemiesInScene
     global playerCharacter
     if (len(enemiesInScene) > 0):
         return True
     if allowReward:
-        GenerateReward(Commands)
+        currentEncounterReference.OnEncounterWin()
+        currentEncounterReference = None
 
     OnCombatEnd()
 
 def OnCombatEnd():
+    global totalEncountersCompleted
     playerCharacter.tempHealth = 0
+    totalEncountersCompleted += 1
+
     EndPlayerTurn()
     ChooseNextEvent()
+    SetupNextCombatEncounter()
 
-def GenerateReward(Commands):
+def GenerateReward():
     import Relics
+    import Commands
     from math import floor
     global playerCharacter
 
@@ -232,24 +251,38 @@ def GiveRelicReward(relic = None):
 
 def ChooseNextEvent():
     import GameEvent as ge
-    from Entity import BasicEnemy
+
+    # Roll for a random event
     eventRoll = random.randrange(0, 100)
     if (eventRoll < 50):
         event = ge.GetRandomEvent()
         if (event != None):
             event.TriggerEvent()
+    
+def SetupNextCombatEncounter():
+    global currentEncounterReference
+    import Encounters as enc
 
-    # Next encounter
-    print("You venture deeper into the wilderness...")
-    for _ in range(0, random.randrange(1, 2 + playerCharacter.level.level // 5)):
-        level = max(1, playerCharacter.level.level + random.randrange(-5, 3))
-        enemy: BasicEnemy | None = Enemies.CreateRandomEnemy(1, level)
-        if enemy is None:
-            continue
-        enemiesInScene.append(enemy)
-        SpawnEnemy(enemy, False, False)
+    if totalEncountersCompleted > 0 and totalEncountersCompleted % 26 == 0:
+        print(f"{Fore.YELLOW}A powerful presence can be felt nearby...{Style.RESET_ALL}")
+        StartEncounter(enc.GetRandomBossEncounter())
+        return
 
-    OnCombatStart()
+    encounter: Encounters.ABaseEncounter | None = None
+    # Roll for a staged encounter
+    eventRoll = random.randrange(0, 100)
+    if (eventRoll < 15):
+        encounter = enc.GetRandomEncounter(enc.__encounter_database__)
+    else:
+        encounter = enc.RandomEncounter()
+
+    if encounter is not None:
+        StartEncounter(encounter)
+
+def StartEncounter(encounter: Encounters.ABaseEncounter):
+    global currentEncounterReference
+    currentEncounterReference = encounter
+    encounter.Trigger()
 
 def OnCombatStart():
     import Relics
@@ -321,6 +354,7 @@ def EndPlayerTurn():
 
 def OnPlayerTurnStart():
     from time import sleep
+    import SkillSystem
     import StatusEffect
     global playerCharacter
     global playerHasAttackedThisTurn
@@ -334,11 +368,17 @@ def OnPlayerTurnStart():
     playerHasAttackedLastTurn = playerHasAttackedThisTurn
     playerHasAttackedThisTurn = False
 
+    scorchingPresenceRank = SkillSystem.GetSkillNodeRank("sknd_scorchingpresence")
+    if scorchingPresenceRank > 0:
+        for enemy in enemiesInScene:
+            StatusEffect.Apply(enemy, StatusEffect.OnFireEffect, scorchingPresenceRank * SkillSystem.PYRO_IGNITE_AMOUNT)
+
     if playerCharacter.stunCount > 0:
         playerCharacter.stunCount -= 1
         print(f"{Fore.MAGENTA}You are stunned and cannot act this turn!{Style.RESET_ALL}")
         sleep(2)
         EndPlayerTurn()
+    playerCharacter.HandleNewTurn()
 
 def ProcessEnemyTurn():
     global enemiesInScene
@@ -370,7 +410,7 @@ def ProcessEnemyTurn():
             continue
         enemy.DoTurn()
         time.sleep(0.2)
-    CheckEncounterStatus()
+    CheckEncounterStillHasEnemies()
 
 def OnLevelUp():
     import SkillSystem

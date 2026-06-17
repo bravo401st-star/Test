@@ -94,6 +94,9 @@ class HealAction(AAction):
         self.healing = healing
         self.actionColor = Fore.YELLOW
 
+    def CanDoAction(self):
+        return self.parentEntity.health < self.parentEntity.maxHealth
+
     def PerformAction(self):
         self.parentEntity.Heal(self.healing)
         return super().PerformAction()
@@ -102,20 +105,40 @@ class HealAction(AAction):
         return super().GetShortDesc() + f" for {self.healing} HP!"
     
 class SummonAction(AAction):
-    def __init__(self, toSummonIndex: int, amount: int = 1):
+    def __init__(self, toSummon: int | str, amount: int = 1):
         super().__init__()
-        self.toSummonIndex = toSummonIndex
+        self.toSummon = toSummon
         self.amount = amount
 
     def PerformAction(self):
         import Enemies
         for _ in range(self.amount):
-            gc.SpawnEnemy(Enemies.CreateEnemyByIndex(self.toSummonIndex, self.parentEntity.level), True)
+            enemy_to_spawn = None
+            if isinstance(self.toSummon, int):
+                enemy_to_spawn = Enemies.CreateEnemyByIndex(self.toSummon, self.parentEntity.level)
+            else:
+                enemy_to_spawn = Enemies.CreateEnemyByName(self.toSummon, self.parentEntity.level)
+
+            gc.SpawnEnemy(enemy_to_spawn, True)
         return super().PerformAction()
     
     def GetShortDesc(self):
         import EnemyList
-        return super().GetShortDesc() + f" {EnemyList.__enemy_pool__[self.toSummonIndex].name}!"
+        # If we were given an index, try to use the referenced name. If a string was provided, use it or look up the pool.
+        name = str(self.toSummon)
+        if isinstance(self.toSummon, int):
+            try:
+                name = EnemyList.__enemy_pool__[self.toSummon].name
+            except Exception:
+                name = str(self.toSummon)
+        else:
+            # try to find matching entry in enemy pool to get name
+            for enemy in EnemyList.__enemy_pool__:
+                if enemy.name == self.toSummon:
+                    name = enemy.name
+                    break
+
+        return super().GetShortDesc() + f" {name}!"
     
 class ShieldRandomAlly(AAction):
     def __init__(self, shieldAmount: int, times: int):
@@ -173,6 +196,29 @@ class TauntAction(AAction):
         print(f"[#{gc.GetIndexOfEnemy(self.parentEntity)}][LVL {self.parentEntity.level}] {self.parentEntity.name}: {self.tauntText}")
         return super().PerformAction()
     
+class SacrificeAction(AAction):
+    def __init__(self, healthSacrifice: int, allyName: str):
+        super().__init__()
+        self.healthSacrifice = healthSacrifice
+        self.allyName = allyName
+        self.actionColor = Fore.YELLOW
+
+    def PerformAction(self):
+        import AttackInfo
+        # Implementation for sacrificing health to buff an ally
+        print(f"{self.parentEntity.name} sacrifices {self.healthSacrifice} HP to empower {self.allyName}!")
+        allies = gc.GetAllEnemiesOfName(self.allyName)
+        if allies is None:
+            return super().PerformAction()
+            
+        for ally in allies:
+            if ally.name == self.allyName:
+                ally.outgoingDamageMultiplier += 0.15
+                print(f"{ally.name} feels empowered by the sacrifice!")
+                break
+        self.parentEntity.Damage(AttackInfo.AttInfo(self.healthSacrifice, self.parentEntity, True, 1.0))
+        return super().PerformAction()
+
 class BuffAlliesAction(AAction):
     def __init__(self, amount: int):
         super().__init__()
@@ -282,7 +328,7 @@ class ApplyEffectToPlayerAction(AAction):
     def PerformAction(self):
         import StatusEffect
         StatusEffect.Apply(gc.playerCharacter, self.effect, self.stacks)
-        print(f"{self.parentEntity.name} applies {self.effect.__name__} to the player!")
+        print(f"{self.parentEntity.name} applies {self.effect.GetName()} to the player!")
         return super().PerformAction()
     
 class DamageBasedOnThornsAction(AttackAction):
@@ -408,8 +454,8 @@ class ActionSet():
         self.SetCurrentAction(self.actionIndex)
         self.ValidateCurrentAction()
 
-    def ValidateCurrentAction(self):
-        if not self.GetNextAction().CanDoAction():
+    def ValidateCurrentAction(self, checkChance: bool = True):
+        if not self.GetNextAction().CanDoAction() or (checkChance and not random.random() <= self.GetNextAction().chance):
             self.SetCurrentAction(self.CycleNextAction())
 
     def GetNextAction(self, index: int | None = None) -> AAction | None:

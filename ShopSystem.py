@@ -41,7 +41,8 @@ class Shop:
             print("2. Sell Items")
             print("3. Upgrade Items")
             print("4. Quick Sell Junk")
-            print("5. Exit Shop")
+            print("5. Services")
+            print("6. Exit Shop")
             choice = input("Enter your choice: ")
 
             Commands.c_clear()
@@ -58,11 +59,50 @@ class Shop:
                 self.QuickSellJunk()
                 return
             elif choice == "5":
+                self.Services()
+                return
+            elif choice == "6":
                 if Commands.PromptYesNoQuestion("Are you sure you want to leave?", False):
                     print("Thank you for visiting my shop!")
                     return
             else:
                 print("Invalid choice. Please try again.")
+
+    def Services(self):
+        healCost = 15
+        removeStatusCost = 50
+        healAmount = 35
+        print("Welcome to the services section! What would you like to do?")
+        while True:
+            healPriceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(healCost) else Fore.RED}{Style.BRIGHT}{healCost} gold{Style.RESET_ALL}]"
+            removeStatusPriceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(removeStatusCost) else Fore.RED}{Style.BRIGHT}{removeStatusCost} gold{Style.RESET_ALL}]"
+
+            print(f"1. {healPriceTag} Heal {Style.BRIGHT}{Fore.GREEN}{healAmount}{Style.RESET_ALL} health")
+            print(f"2. {removeStatusPriceTag} Remove all negative status effects")
+            print("3. Exit Services")
+            choice = input("Enter your choice: ")
+
+            Commands.c_clear()
+            if choice == "1":
+                if gc.playerCharacter.SpendGold(healCost):
+                    gc.playerCharacter.Heal(healAmount)
+                    print("You have been healed!")
+                else:
+                    print("You don't have enough gold!")
+                continue
+            elif choice == "2":
+                if gc.playerCharacter.SpendGold(removeStatusCost):
+                    gc.playerCharacter.ClearStatusEffects(True)
+                    print("All negative status effects have been removed!")
+                else:
+                    print("You don't have enough gold!")
+                continue
+            elif choice == "3" or choice == "":
+                break
+            else:
+                print("Invalid choice. Please try again.")
+
+        self.OpenShop()
 
     def QuickSellJunk(self):
         junkItems: list[ItemSystem.JunkItem] = []

@@ -31,10 +31,11 @@ def GameLoop():
         if (command == REPEAT_COMMAND):
             command = Commands.lastCommand
         PushInput(command)
-        gc.CheckEncounterStatus()
+        gc.CheckEncounterStillHasEnemies()
 
     print("Game over!")
     print(f"[Kills: {gc.killCount}] [Level Reached: {gc.playerCharacter.level.level}] [Difficulty: {gc.setDifficulty.name.title()}]")
+    input("Press enter to exit...")
 
 def GetInput() -> str:
     import SkillSystem

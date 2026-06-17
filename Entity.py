@@ -332,6 +332,69 @@ class BasicEnemy(AEntity):
         self.canSpawnInEncounters = False
         return self
     
+    def GetDangerRating(self) -> float:
+        """Estimate how dangerous this enemy is for scaling and spawning."""
+        score = float(self.maxHealth)
+        score += float(self.shield) * 0.5
+        score += float(self.tempHealth) * 0.4
+
+        if self.actionSet is not None:
+            for action in self.actionSet.actions:
+                score += self._GetActionThreat(action)
+
+        return max(0.0, score)
+
+    def _GetAverageActionRepeats(self, repeatAmount: int | range) -> float:
+        if isinstance(repeatAmount, range):
+            if repeatAmount.step == 0:
+                return 1.0
+            last = repeatAmount.stop - repeatAmount.step
+            return max(1.0, (repeatAmount.start + last) / 2)
+        return float(repeatAmount)
+
+    def _GetActionThreat(self, action) -> float:
+        import Actions
+
+        repeatCount = self._GetAverageActionRepeats(action.repeatAmount)
+        chance = getattr(action, "chance", 1.0)
+
+        if isinstance(action, Actions.EmberlingDetonate):
+            return self.GetDetonateDamage() * repeatCount * chance
+        if isinstance(action, Actions.DamageBasedOnThornsAction):
+            damage = int(self.thorns * action.thornsDamageMultiplier)
+            return damage * getattr(action, "attackCount", 1) * repeatCount * chance
+        if isinstance(action, Actions.AttackAction):
+            damage = getattr(action, "damage", 0)
+            return damage * getattr(action, "attackCount", 1) * repeatCount * chance
+        if isinstance(action, Actions.SummonAction):
+            return 10.0 * getattr(action, "amount", 1) * repeatCount * chance
+        if isinstance(action, Actions.ShieldAndHealAction):
+            heal = getattr(action, "healAmount", 0)
+            shield = getattr(action, "shieldAmount", 0)
+            return (heal * 0.4 + shield * 0.3) * repeatCount * chance
+        if isinstance(action, Actions.ProtectAction):
+            return getattr(action, "protectAmount", 0) * 0.2 * repeatCount * chance
+        if isinstance(action, Actions.HealAction):
+            return getattr(action, "healing", 0) * 0.4 * repeatCount * chance
+        if isinstance(action, Actions.HealRandomUndeadAction):
+            return getattr(action, "healing", 0) * 0.5 * repeatCount * chance
+        if isinstance(action, Actions.BuffAlliesAction):
+            return getattr(action, "amount", 0) * 1.5 * repeatCount * chance
+        if isinstance(action, Actions.ApplyEffectToPlayerAction):
+            return getattr(action, "stacks", 0) * 4.0 * repeatCount * chance
+        if isinstance(action, Actions.ApplyEffectToSelfAction):
+            return getattr(action, "stacks", 0) * 1.0 * repeatCount * chance
+        if isinstance(action, Actions.SorrowFeedAction):
+            return getattr(action, "damagePerDebuff", 0) * 2.0 * repeatCount * chance
+        if isinstance(action, Actions.StealAndAttackAction):
+            damage = getattr(action, "damage", 0) * getattr(action, "attackCount", 1)
+            return (damage + 5) * repeatCount * chance
+        if isinstance(action, Actions.TotallyHarmlessWiggleAction):
+            return 15.0 * repeatCount * chance
+        if isinstance(action, Actions.TransformAction):
+            return 12.0 * repeatCount * chance
+        return 0.0
+
     def OnEffectApply(self, effect):
         import StatusEffect
         if isinstance(effect, StatusEffect.PoisonEffect):
@@ -409,6 +472,9 @@ class BasicEnemy(AEntity):
     def Damage(self, attackInfo: AttInfo) -> int:
         import SkillSystem
 
+        if self.HasTag(EnemyTag.IMMUNE_TO_DAMAGE):
+             return 0
+
         executionersMarkCount = gc.playerCharacter.GetRelicCount(Relics.ExecutionersMark)
         if executionersMarkCount > 0 and self.GetHealthPercent() <= Relics.ExecutionersMark.HP_THRESHOLD:
             attackInfo.damage = round(attackInfo.damage * (1 + Relics.ExecutionersMark.ADDITIONAL_DAMAGE * executionersMarkCount))
@@ -447,8 +513,14 @@ class BasicEnemy(AEntity):
 
     def AddTags(self, *tags: str):
         for tag in tags:
+            if self.HasTag(tag):
+                continue
             self.tags.append(tag)
         return self
+    
+    def RemoveTag(self, tag: str):
+        if tag in self.tags:
+            self.tags.remove(tag)
     
     def HasTag(self, *tags: str):
         for tagInList in tags:
@@ -456,6 +528,17 @@ class BasicEnemy(AEntity):
                 if t == tagInList:
                     return True
         return False
+    
+    def get_outgoingDamageMultiplier(self) -> float:
+        import SkillSystem
+        import StatusEffect
+        multiplier = super().get_outgoingDamageMultiplier()
+        heatExhaustionRank = SkillSystem.GetSkillNodeRank("sknd_heatexhaustion")
+        if heatExhaustionRank > 0 and self.HasEffect(StatusEffect.OnFireEffect):
+            multiplier *= 1 - (SkillSystem.PYRO_HEAT_EXHAUSTION_DAMAGE_REDUCTION * heatExhaustionRank)
+        return multiplier
+    
+    outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, AEntity.set_outgoingDamageMultiplier)
     
 class NecromancerEnemy(BasicEnemy):
     def __init__(self):
@@ -488,6 +571,30 @@ class TrollEnemy(BasicEnemy):
         self.Heal(5)
         return super().DoTurn()
     
+class EldtritchEntityEnemy(BasicEnemy):
+    def __init__(self):
+        super().__init__()
+        self.AddTags(EnemyTag.CANT_BE_UNDEAD)
+        self.AddTags(EnemyTag.BOSS)
+
+    def OnSpawn(self):
+        self.UpdateImmunity()
+        return super().OnSpawn()
+
+    def UpdateImmunity(self):
+         cultists = gc.GetAllEnemiesOfName("Cultist")
+         if len(cultists) > 0:
+             self.AddTags(EnemyTag.IMMUNE_TO_DAMAGE)
+         else:
+             self.RemoveTag(EnemyTag.IMMUNE_TO_DAMAGE)
+
+    def Damage(self, attackInfo):
+        self.UpdateImmunity()
+        if self.HasTag(EnemyTag.IMMUNE_TO_DAMAGE):
+            print(f"{Fore.RED}{Style.BRIGHT}{self.name}{Style.NORMAL} is protected by the nearby cultists and takes no damage!{Style.RESET_ALL}")
+
+        return super().Damage(attackInfo)
+
 class WraithEnemy(BasicEnemy):
     def __init__(self):
         super().__init__()
@@ -607,6 +714,7 @@ class Player(AEntity):
         self.experienceMultiplier = 1.0
         self._tempDamageBonus = 0.0
         self._nextTurnDamageBonusStored = 0.0
+        self.shieldMultiplier = 1.0
 
         # Skill triggers
         self._ironWillReady: bool = True
@@ -619,6 +727,9 @@ class Player(AEntity):
         self.relics.append(relic)
         print(Fore.LIGHTMAGENTA_EX + Style.BRIGHT + relic.name + Style.RESET_ALL + " acquired by " + self.name + Style.RESET_ALL)
         relic.OnAcquire()
+
+    def AddShield(self, amount: int):
+        super().AddShield(round(amount * self.shieldMultiplier))
 
     def RemoveRelic(self, relicType: type):
         for relic in self.relics:
@@ -692,6 +803,12 @@ class Player(AEntity):
         if (gc.godmode):
             print(f"Godly power has blocked {attackInfo.damage} damage.")
             return 0
+        
+        thermalShieldingRank = SkillSystem.GetSkillNodeRank("sknd_thermalshielding")
+        if thermalShieldingRank > 0 and attackInfo.HasElement(ElementTag.FIRE):
+            reduction = SkillSystem.PYRO_THERMAL_SHIELDING_DEFENSE_BONUS * thermalShieldingRank
+            print(f"{Fore.YELLOW}Your Thermal Shielding skill reduces the fire damage by {round(reduction * 100)}%!{Fore.RESET}")
+            attackInfo.damage = round(attackInfo.damage * (1 - reduction))
         
         verdantCrestCount = self.GetRelicCount(Relics.VerdantCrest)
         if verdantCrestCount > 0 and attackInfo.HasElement(ElementTag.FIRE):

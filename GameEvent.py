@@ -1,6 +1,10 @@
+from math import floor
 import random
 from abc import ABC, abstractmethod
 from colorama import Fore, Style
+
+import Items
+import Relics
 
 class AGameEvent(ABC):
     name = "Generic Event"
@@ -46,6 +50,47 @@ class TrapEvent(AGameEvent):
         damage = random.randrange(5, 16)
         gc.playerCharacter.Damage(AttInfo(damage))
         print(f"You take {Style.BRIGHT}{Fore.RED}{damage}{Style.RESET_ALL} damage from the trap!")
+
+class GraveyardEvent(AGameEvent):
+    name = "Graveyard Encounter"
+    chance = 20
+
+    def TriggerEvent(self):
+        import GameCore as gc
+        import Commands
+        Commands.c_clear()
+
+        print(f"You come across a small graveyard. The air is thick with sorrow and the scent of decay.\n"
+                f"1. Pay respects at the graves\n"
+                f"2. Search the graves for loot\n"
+                f"3. Leave")
+
+        while True:
+            choice = input("Choose your option: ")
+            if choice.isdigit():
+                index = int(choice)
+                if index == 1:
+                    print("You take a moment to pay your respects. You feel a sense of calm wash over you.")
+                    gc.playerCharacter.ClearStatusEffects(True)
+                    return
+                elif index == 2:
+                    print("You search the graves and find some loot!")
+                    itemsToGive = floor(gc.playerCharacter.lootDropChance)
+                    percentLeft = gc.playerCharacter.lootDropChance - itemsToGive
+
+                    if random.random() < percentLeft:
+                        itemsToGive += 1
+                    rolls = 2 if gc.playerCharacter.HasRelic(Relics.FortunesEmblem) else 1
+                    for _ in range(0, itemsToGive):
+                        rewardItem = Items.GetRandomItem(True, rolls)
+                    if (Commands.PromptYesNoQuestion(f"You have defeated all enemies in the area! You find a {Style.BRIGHT}{Fore.MAGENTA}{rewardItem.name}{Style.RESET_ALL} as a reward. Do you want to keep it?", True)):
+                        gc.playerCharacter.GiveItem(rewardItem)
+                    return
+                elif index == 3:
+                    Commands.c_clear()
+                    return
+            
+            print("Invalid input.")
 
 class MysteriousBlacksmithEvent(AGameEvent):
     name = "Mysterious Blacksmith Encounter"

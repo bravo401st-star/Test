@@ -180,13 +180,23 @@ class OnFireEffect(AEffect):
     def OnEffectTick(self):
         import random
         import GameCore as gc
+        import SkillSystem
         from ElementTags import ElementTag
         # chance to spread to random enemy
-        if random.random() <= OnFireEffect.CHANCE_TO_SPREAD and len(gc.enemiesInScene) > 0:
+        controlledBurnRank = SkillSystem.GetSkillNodeRank("sknd_controlledburn")
+        if random.random() <= (OnFireEffect.CHANCE_TO_SPREAD + (controlledBurnRank * SkillSystem.PYRO_ACCELERANT_DAMAGE_BONUS)) and len(gc.enemiesInScene) > 0:
             entity: AEntity = random.choice(gc.enemiesInScene)
             print(f"The flames spread to {entity.name}")
             Apply(entity, OnFireEffect, 1)
-        self.attachedEntity.Damage(AttInfo(random.randrange(3, 16), None, True).AddElements(ElementTag.FIRE))
+        damage = random.randrange(3, 16)
+        accelerantRank = SkillSystem.GetSkillNodeRank("sknd_accelerant")
+        if accelerantRank > 0:
+            damage *= int(1 + SkillSystem.PYRO_ACCELERANT_DAMAGE_BONUS * accelerantRank)
+        self.attachedEntity.Damage(AttInfo(damage, None, True).AddElements(ElementTag.FIRE))
+        everlastingEmbersRank = SkillSystem.GetSkillNodeRank("sknd_everlastingembers")
+        if everlastingEmbersRank > 0:
+            return
+
         return super().OnEffectTick()
     
     def GetName(self):
@@ -265,6 +275,32 @@ class Resistance(AEffect):
     
     def GetName(self):
         return f"{Fore.WHITE}{Style.BRIGHT}Resistance{Style.NORMAL}{Fore.RESET}"
+    
+class CursedEffect(AEffect):
+    positive: bool = False
+    HEALING_REDUCTION: float = 1.0
+
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} has been cursed!")
+        self.attachedEntity.healingMultiplier -= self.HEALING_REDUCTION
+        return super().OnEffectApply()
+
+    def OnEffectRemove(self):
+        self.attachedEntity.healingMultiplier += self.HEALING_REDUCTION
+        return super().OnEffectRemove()
+
+    def GetName(self):
+        return f"{Fore.MAGENTA}{Style.DIM}Cursed{Style.NORMAL}{Fore.RESET}"
+    
+class MadnessEffect(AEffect):
+    positive: bool = False
+
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} has gone mad!")
+        return super().OnEffectApply()
+    
+    def GetName(self):
+        return f"{Fore.MAGENTA}{Style.BRIGHT}Madness{Style.NORMAL}{Fore.RESET}"
     
 class InfectionEffect(AEffect):
     positive: bool = False

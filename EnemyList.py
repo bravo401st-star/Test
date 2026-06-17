@@ -21,13 +21,16 @@ __enemy_pool__ = [
     Entity.BasicEnemy().SetName("Carrion Maggot").SetMaxHealth(20, setHealthToo=True).SetDropExp(range(1,3)).AttachActionSet(ActionSets.carrion_maggot_action_set),
     Entity.CarrionHorrorEnemy().SetName("Carrion Horror").SetMaxHealth(225, setHealthToo=True).SetDropExp(range(24,37)).AttachActionSet(ActionSets.carrion_horror_action_set).DisableSpawnPool(),
     Entity.BasicEnemy().SetName("Thornback Tortoise").SetMaxHealth(100, setHealthToo=True).SetDropExp(range(1,6)).AttachActionSet(ActionSets.thornback_action_set),
+    Entity.BasicEnemy().SetName("Goblin Warlord").SetMaxHealth(50, setHealthToo=True).SetDropExp(range(3,6)).AttachActionSet(ActionSets.goblin_warlord_action_set),
     #Entity.BasicEnemy().SetName("Hollowed Prophet").SetMaxHealth(35, setHealthToo=True).SetDropExp(range(2,4)),
-    #Entity.BasicEnemy().SetName("Cultist"),
+    Entity.BasicEnemy().SetName("Cultist").SetMaxHealth(60, setHealthToo=True).SetDropExp(range(1,3)).AttachActionSet(ActionSets.cultist_action_set).DisableSpawnPool(),
+    Entity.EldtritchEntityEnemy().SetName("Eldtritch Entity").SetMaxHealth(250, setHealthToo=True).SetDropExp(range(25,35)).AttachActionSet(ActionSets.eldtritch_entity_action_set).DisableSpawnPool(),
     Entity.IroncladEnemy().SetName("Ironclad Marshal").SetMaxHealth(20, setHealthToo=True).SetDropExp(range(1,4)).AttachActionSet(ActionSets.ironclad_action_set),
     Entity.MagmaBeastEnemy().SetName("Magmatic Beast").SetMaxHealth(36, setHealthToo=True).SetDropExp(range(2,4)).AttachActionSet(ActionSets.magma_beast_action_set),
     #Entity.BasicEnemy().SetName("Slime"),
     #Entity.BasicEnemy().SetName("Mimic"),
     #Entity.BasicEnemy().SetName("Vampire Spawn"),
+    #Entity.BasicEnemy().SetName("Giant Spider").SetMaxHealth(30, setHealthToo=True).SetDropExp(range(1,3)).AttachActionSet(ActionSets.giant_spider_action_set),
 ]
 
 __naturally_spawning_pool___ = []

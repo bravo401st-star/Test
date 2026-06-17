@@ -91,4 +91,21 @@ ironclad_action_set.AppendAction(AP.ShieldRandomAlly(20, 3).SetName("Protect").S
 ironclad_action_set.AppendAction(AP.AttackAction(16).SetName("Slice").SetShortDesc("Preparing to slice").SetChance(0.5))
 
 magma_beast_action_set = AP.ActionSet()
-magma_beast_action_set.AppendAction(AP.AttackAction(10).SetName("Burn").SetShortDesc("Preparing to burn you").SetAttackCount(2).SetElement(ElementTag.FIRE))
+magma_beast_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.OnFireEffect, 2).SetName("Ignite").SetShortDesc("Preparing to ignite you").SetChance(0.5))
+magma_beast_action_set.AppendAction(AP.ProtectAction(15).SetName("Molten Shell").SetShortDesc("Preparing to harden its magma shell").SetChance(0.4))
+magma_beast_action_set.AppendAction(AP.AttackAction(6).SetName("Lava Spit").SetShortDesc("Preparing to spit lava").SetAttackCount(3).SetElement(ElementTag.FIRE).SetChance(0.6))
+
+goblin_warlord_action_set = AP.ActionSet()
+goblin_warlord_action_set.AppendAction(AP.AttackAction(20).SetName("Cleave").SetShortDesc("Preparing to cleave").SetAttackCount(2).SetChance(0.5))
+goblin_warlord_action_set.AppendAction(AP.BuffAlliesAction(10).SetName("Rally").SetShortDesc("Preparing to rally allies").SetChance(0.75))
+goblin_warlord_action_set.AppendAction(AP.SummonAction("Goblin", 3).SetName("Summon").SetShortDesc("Preparing to call reinforcements").SetChance(0.5))
+
+cultist_action_set = AP.ActionSet()
+cultist_action_set.AppendAction(AP.AttackAction(4).SetName("Dark Strike").SetShortDesc("Preparing to strike with dark tendrils").SetChance(0.3).SetAttackCount(3))
+cultist_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.CursedEffect, 3).SetName("Curse").SetShortDesc("Preparing to curse you").SetChance(0.25))
+cultist_action_set.AppendAction(AP.SacrificeAction(5, "Eldtritch Entity").SetName("Sacrifice").SetShortDesc("Preparing to blood sacrifice"))
+
+eldtritch_entity_action_set = AP.ActionSet()
+eldtritch_entity_action_set.AppendAction(AP.AttackAction(10).SetName("Tentacle Slam").SetShortDesc("Preparing to slam with tentacles").SetAttackCount(2))
+eldtritch_entity_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.MadnessEffect, 5).SetName("Madness").SetShortDesc("Preparing to induce madness").SetChance(0.5))
+eldtritch_entity_action_set.AppendAction(AP.AttackAction(3).SetName("Eldtritch Blast").SetShortDesc("Preparing to blast you with eldtritch energy").SetAttackCount(10).SetChance(0.6))

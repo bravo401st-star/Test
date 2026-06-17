@@ -27,7 +27,7 @@ class StringArgument(Argument):
         super().__init__(value)
 
     def Get(self):
-        if (not self.value.isascii):
+        if (not self.value.isascii()):
             raise ValueError(f"Value of string argument is not a string!")
         
         return str(self.value)
@@ -37,7 +37,7 @@ class IntArgument(Argument):
         super().__init__(value)
 
     def Get(self):
-        if (not self.value.isnumeric):
+        if (not self.value.isnumeric()):
             raise ValueError(f"Value of int argument is not an int!")
         
         return int(self.value)

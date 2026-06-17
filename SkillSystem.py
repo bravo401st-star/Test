@@ -55,11 +55,14 @@ BULWARK_HARDENED_SKIN_DAMAGE_REDUCTION = 0.02
 BULWARK_TOUGH_AS_NAILS_MAX_HP_BONUS = 10
 BULWARK_LAST_STAND_HP_THRESHOLD = 0.40
 BULWARK_LAST_STAND_SHIELD_GAIN = 10
+BULWARK_HARDENED_SKIN_SHIELD_BONUS = 0.1
 
-# Tactician Tree
-TACTICIAN_CALCULATED_PATIENCE_DAMAGE_BONUS = 0.10
-TACTICIAN_OPENING_GAMBIT_DAMAGE_BONUS = 0.25
-TACTICIAN_PRESS_ADVANTAGE_STAMINA_GAIN = 1
+# Pyro Tree
+PYRO_SPREAD_CHANCE = 0.1
+PYRO_IGNITE_AMOUNT = 1
+PYRO_ACCELERANT_DAMAGE_BONUS = 0.1
+PYRO_HEAT_EXHAUSTION_DAMAGE_REDUCTION = 0.15
+PYRO_THERMAL_SHIELDING_DEFENSE_BONUS = 0.50
 
 # Alchemy Tree
 ALCHEMY_POTENT_BREWS_STRENGTH_BONUS = 0.25
@@ -191,19 +194,19 @@ __skill_trees__: list[SkillTree] = [
 
     SkillTree("Bulwark", "sktr_bulwark")
         .AppendNode(SkillNode(name="Brace", id="sknd_brace", description=f"Gain +{BULWARK_BRACE_DEFENSE} shield at the start of combat.", maxRank=3, rankUpCallback=[]))
-        .AppendNode(SkillNode(name="Hardened Skin", id="sknd_hardenedSkin", description=f"Take {int(BULWARK_HARDENED_SKIN_DAMAGE_REDUCTION * 100)}% less damage from all sources.", maxRank=5, rankUpCallback=[ModifyPlayerStat("damageResistance", BULWARK_HARDENED_SKIN_DAMAGE_REDUCTION)]))
+        .AppendNode(SkillNode(name="Hardened Skin", id="sknd_hardenedSkin", description=f"Take {int(BULWARK_HARDENED_SKIN_DAMAGE_REDUCTION * 100)}% less damage from all sources. Shield gain increased by +{int(BULWARK_HARDENED_SKIN_SHIELD_BONUS * 100)}%.", maxRank=5, rankUpCallback=[ModifyPlayerStat("damageResistance", BULWARK_HARDENED_SKIN_DAMAGE_REDUCTION), ModifyPlayerStat("shieldMultiplier", BULWARK_HARDENED_SKIN_SHIELD_BONUS)]))
         .AppendNode(SkillNode(name="Tough as Nails", id="sknd_toughasnails", description=f"Increase your maximum health by {BULWARK_TOUGH_AS_NAILS_MAX_HP_BONUS}", maxRank=4, rankUpCallback=[IncreaseMaxHealth(BULWARK_TOUGH_AS_NAILS_MAX_HP_BONUS)]))
         .AppendNode(SkillNode(name="Last Stand", id="sknd_laststand", description=f"Below {int(BULWARK_LAST_STAND_HP_THRESHOLD * 100)}% HP, gain +{BULWARK_LAST_STAND_SHIELD_GAIN} shield per turn.", maxRank=1, rankUpCallback=[]))
         .AppendNode(SkillNode(name="Iron Will", id="sknd_ironwill", description="The first debuff applied to you each combat is negated.", maxRank=1, rankUpCallback=[]))
         .AppendNode(SkillNode(name="Unbreakable", id="sknd_unbreakable", description="Once per combat, damage that would kill you leaves you at 1 HP instead.", maxRank=1, rankUpCallback=[])),
 
-    SkillTree("Tactician", "sktr_tactician")
-        .AppendNode(SkillNode(name="Calculated Patience", id="sknd_calculatedpatience", description=f"If you do not attack this turn, gain +{int(TACTICIAN_CALCULATED_PATIENCE_DAMAGE_BONUS * 100)}% damage on your next attack.", maxRank=3, rankUpCallback=[]))
-        .AppendNode(SkillNode(name="Stored Momentum", id="sknd_storedmomentum", description=f"If you do not attack this turn, also gain +{TACTICIAN_PRESS_ADVANTAGE_STAMINA_GAIN} stamina next turn.", maxRank=1, rankUpCallback=[]))
-        .AppendNode(SkillNode(name="Opening Gambit", id="sknd_openinggambit", description=f"Your first attack each combat deals +{int(TACTICIAN_OPENING_GAMBIT_DAMAGE_BONUS * 100)}% damage.", maxRank=1, rankUpCallback=[]))
-        .AppendNode(SkillNode(name="Press the Advantage", id="sknd_presstheadvantage", description=f"After a crit or kill, gain +{TACTICIAN_PRESS_ADVANTAGE_STAMINA_GAIN} stamina next turn.", maxRank=1, rankUpCallback=[]))
-        #.AppendNode(SkillNode(name="Enemy Exploitation", id="sknd_tacticalreset", description="If an enemy misses, delays, or skips, your next attack deals +30% damage.", maxRank=1, rankUpCallback=[]))
-        .AppendNode(SkillNode(name="Perfect Control", id="sknd_perfectcontrol", description="At the beginning of combat, take an extra turn.", maxRank=1, rankUpCallback=[])),
+    SkillTree("Pyromaniac", "sktr_pyro")
+        .AppendNode(SkillNode(name="Controlled Burn", id="sknd_controlledburn", description=f"Fire has a +{int(PYRO_SPREAD_CHANCE * 100)}% chance to spread per turn", maxRank=3, rankUpCallback=[]))
+        .AppendNode(SkillNode(name="Scorching Presence", id="sknd_scorchingpresence", description=f"Enemies are ignited with +{int(PYRO_IGNITE_AMOUNT)} fire per turn", maxRank=3, rankUpCallback=[]))
+        .AppendNode(SkillNode(name="Accelerant", id="sknd_accelerant", description=f"Fire deals +{int(PYRO_ACCELERANT_DAMAGE_BONUS * 100)}% damage", maxRank=4, rankUpCallback=[]))
+        .AppendNode(SkillNode(name="Everlasting Embers", id="sknd_everlastingembers", description=f"Fire never expires on enemies", maxRank=1, rankUpCallback=[]))
+        .AppendNode(SkillNode(name="Heat Exhaustion", id="sknd_heatexhaustion", description=f"Enemies on fire deal -{int(PYRO_HEAT_EXHAUSTION_DAMAGE_REDUCTION * 100)}% damage.", maxRank=2, rankUpCallback=[]))
+        .AppendNode(SkillNode(name="Thermal Shielding", id="sknd_thermalshielding", description=f"Take -{int(PYRO_THERMAL_SHIELDING_DEFENSE_BONUS * 100)}% damage from fire", maxRank=1, rankUpCallback=[])),
 
     SkillTree("Alchemy", "sktr_alchemy")
         .AppendNode(SkillNode(name="Quick Mix", id="sknd_quickmix", description="Using a potion costs no stamina.", maxRank=1, rankUpCallback=[]))
