@@ -11,6 +11,7 @@ import Actions
 from EnemyTags import EnemyTag
 import Relics
 from AttackInfo import AttInfo
+import StatusEffect
 
 class AEntity(ABC):
     def __init__(self):
@@ -22,8 +23,8 @@ class AEntity(ABC):
         self._additionalRawDamage = 0
         self._outgoingDamageMultiplier = 1.0
         self.effects: list[AEffect] = []
-        self.evasion = 0.0
-        self.damageResistance = 0.0
+        self._evasion = 0.0
+        self._damageResistance = 0.0
         self.shield = 0
         self.lifesteal = 0.0
         self.damageReflect = 0.0
@@ -33,6 +34,7 @@ class AEntity(ABC):
         self.tempHealth = 0
         self.maxTempHealth = 0
         self.shieldStartOfTurnMult: float = 0.0
+        self.turnsAlive = 0
 
     def OnSpawn(self):
         pass
@@ -69,9 +71,6 @@ class AEntity(ABC):
 
         return string
     
-    def GetEvasion(self) -> float:
-        return min(0.75, self.evasion)
-    
     def set_additionalRawDamage(self, value: int):
         self._additionalRawDamage = value
 
@@ -92,6 +91,7 @@ class AEntity(ABC):
 
     def DoTurn(self):
         import StatusEffect
+        self.turnsAlive += 1
         effectsToRemove = []
         for effect in self.effects:
             effect.OnEffectTick()
@@ -103,7 +103,7 @@ class AEntity(ABC):
         pass
 
     def HandleNewTurn(self):
-        import StatusEffect
+        import StatusEffect, SkillSystem
         if not self.HasEffect(StatusEffect.FortitudeEffect):
             self.SetShield(round(self.shield * self.shieldStartOfTurnMult))
 
@@ -128,6 +128,10 @@ class AEntity(ABC):
 
     def HasEffect(self, effectType: type) -> bool:
         return self.GetEffect(effectType) is not None
+    
+    def GetEffectAmount(self, effectType: type) -> int:
+        effect = self.GetEffect(effectType)
+        return -1 if effect is None else effect.stacks
     
     def Cleanup(self):
         pass
@@ -164,7 +168,8 @@ class AEntity(ABC):
 
     def Damage(self, attackInfo: AttInfo) -> int:
         from ElementTags import ElementTag
-        from StatusEffect import OnFireEffect, Apply
+        from StatusEffect import OnFireEffect, PoisonEffect, Apply
+        import SkillSystem as sk
         if self.health <= 0 or attackInfo.damage == 0:
             return 0
         if not attackInfo.ignoresEvasion and self.CheckEvasion():
@@ -205,7 +210,13 @@ class AEntity(ABC):
             print(f"{self.name} absorbed {Fore.YELLOW}{absorbed}{Fore.RESET} damage!")
         
         if attackInfo.damage > 0:
-            print(f"{self.name} took {Fore.RED}{attackInfo.damage}{Fore.RESET} damage!")
+            if attackInfo.damage >= 30:
+                style = f"{Fore.RED}{Style.BRIGHT}"
+            elif attackInfo.damage >= 15:
+                style = f"{Fore.RED}{Style.NORMAL}"
+            else:
+                style = f"{Fore.RED}{Style.DIM}"
+            print(f"{style}{self.name} took {attackInfo.damage} damage!{Style.RESET_ALL}")
             if attackInfo.HasElement(ElementTag.FIRE) and random.random() <= 0.5:
                 Apply(self, OnFireEffect, 1)
 
@@ -227,16 +238,21 @@ class AEntity(ABC):
             
             if self.thorns > 0:
                 attacker.Damage(AttInfo(self.thorns))
+
+            if attacker is gc.playerCharacter:
+                toxicCoatingRank = sk.GetSkillNodeRank("sknd_toxiccoating")
+                if toxicCoatingRank > 0 and random.random() < sk.POISON_TOXIC_COATING_CHANCE * toxicCoatingRank:
+                    Apply(self, PoisonEffect, sk.POISON_TOXIC_COATING_AMOUNT)
         
         if self.health <= 0:
             self.Kill()
         return attackInfo.damage
 
     def CheckEvasion(self) -> bool:
-        if (self.GetEvasion() <= 0.0):
+        if (self.evasion <= 0.0):
             return False
         roll = random.uniform(0.0, 1.0)
-        if (roll < self.GetEvasion()):
+        if (roll < self.evasion):
             return True
         return False
 
@@ -299,11 +315,25 @@ class AEntity(ABC):
     
     def set_healingMultiplier(self, value: float):
         self._healingMultiplier = value
+
+    def get_damageResistance(self) -> float:
+        return self._damageResistance
+    
+    def set_damageResistance(self, value: float):
+        self._damageResistance = value
+
+    def get_evasion(self) -> float:
+        return min(0.75, self._evasion)
+    
+    def set_evasion(self, value: float):
+        self._evasion = value
         
     # properties
     additionalRawDamage = property(get_additionalRawDamage, set_additionalRawDamage)
     outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, set_outgoingDamageMultiplier)
     healingMultiplier = property(get_healingMultiplier, set_healingMultiplier)
+    damageResistance = property(get_damageResistance, set_damageResistance)
+    evasion = property(get_evasion, set_evasion)
 
 
 e_EntityDeath = EventSystem.Event(AEntity)
@@ -365,7 +395,10 @@ class BasicEnemy(AEntity):
             return damage * getattr(action, "attackCount", 1) * repeatCount * chance
         if isinstance(action, Actions.AttackAction):
             damage = getattr(action, "damage", 0)
-            return damage * getattr(action, "attackCount", 1) * repeatCount * chance
+            attackCount = getattr(action, "attackCount", 1)
+            if isinstance(attackCount, range):
+                attackCount = int((attackCount.start + attackCount.stop) / 2) if attackCount.stop != 0 else int(attackCount.start)
+            return damage * attackCount * repeatCount * chance
         if isinstance(action, Actions.SummonAction):
             return 10.0 * getattr(action, "amount", 1) * repeatCount * chance
         if isinstance(action, Actions.ShieldAndHealAction):
@@ -396,7 +429,7 @@ class BasicEnemy(AEntity):
         return 0.0
 
     def OnEffectApply(self, effect):
-        import StatusEffect
+        import StatusEffect, SkillSystem
         if isinstance(effect, StatusEffect.PoisonEffect):
             venomousKeystoneCount = gc.playerCharacter.GetRelicCount(Relics.VenomousKeystone)
             if venomousKeystoneCount > 0:
@@ -405,6 +438,10 @@ class BasicEnemy(AEntity):
             parasiticSporeheartCount = gc.playerCharacter.GetRelicCount(Relics.ParasiticSporeheart)
             if parasiticSporeheartCount > 0:
                 gc.playerCharacter.Heal(parasiticSporeheartCount * Relics.ParasiticSporeheart.HEAL_ON_POISON)
+
+        volatileReactionRank = SkillSystem.GetSkillNodeRank("sknd_volatilereactions")
+        if not effect.positive and volatileReactionRank > 0:
+            self.Damage(AttInfo(SkillSystem.ALCHEMY_VOLATILE_REACTIONS_DAMAGE * volatileReactionRank, None, True))
 
         return super().OnEffectApply(effect)
     
@@ -425,6 +462,9 @@ class BasicEnemy(AEntity):
             if (random.random() < Relics.SoulbinderCharm.RELIC_DROP_CHANCE * soulbinderCharmCount):
                 gc.GiveRelicReward()
 
+        noWitnessRank = SkillSystem.GetSkillNodeRank("sknd_nowitnesses")
+        if noWitnessRank > 0:
+            gc.playerCharacter._tempEvasionBonus += SkillSystem.SHADOW_NO_WITNESSES_EVASION_BONUS * noWitnessRank
 
         if gc.playerCharacter.HasRelic(Relics.SoulvesselJar):
             Relics.soulvesselJarKillsNeeded -= 1
@@ -467,6 +507,23 @@ class BasicEnemy(AEntity):
             gc.playerCharacter._tempDamageBonus += SkillSystem.VAMPIRIC_FEAST_ETERNAL_DAMAGE_BONUS * feastEternalRank
             gc.playerCharacter.Heal(SkillSystem.VAMPIRIC_FEAST_ETERNAL_HEAL * feastEternalRank)
 
+        plagueDeathRank = SkillSystem.GetSkillNodeRank("sknd_plaguedeath")
+        poisonAmount = self.GetEffectAmount(StatusEffect.PoisonEffect)
+        if plagueDeathRank > 0 and poisonAmount > 0:
+            otherEnemies = copy.copy(gc.enemiesInScene)
+            otherEnemies.remove(self)
+            if len(otherEnemies) > 0:
+                for enemy in otherEnemies:
+                    StatusEffect.Apply(enemy, StatusEffect.PoisonEffect, max(1, floor(poisonAmount / len(otherEnemies))))
+
+        reagentHarvestRank = SkillSystem.GetSkillNodeRank("sknd_reagentharvest")
+        if reagentHarvestRank > 0 and random.random() < SkillSystem.ALCHEMY_REAGENT_HARVEST_CHANCE * reagentHarvestRank:
+            potionsInInventory = [item for item in gc.playerCharacter.items if isinstance(item, ItemSystem.Potion)]
+            if len(potionsInInventory) > 0:
+                potion = random.choice(potionsInInventory)
+                potion.useCount += 1
+                print(f"{Fore.CYAN}Your {Style.BRIGHT}{potion.name}{Style.NORMAL}{Fore.CYAN} has been replenished by {SkillSystem.ALCHEMY_REAGENT_HARVEST_USE_RESTORE}!{Style.RESET_ALL}")
+
         return super().Kill()
     
     def Damage(self, attackInfo: AttInfo) -> int:
@@ -494,6 +551,35 @@ class BasicEnemy(AEntity):
             if serratedBlowsRank > 0 and random.random() < SkillSystem.VAMPIRIC_SERRATED_BLOWS_CHANCE * serratedBlowsRank:
                 StatusEffect.Apply(self, StatusEffect.BleedEffect, 1)
 
+            cripplingBlowsRank = SkillSystem.GetSkillNodeRank("sknd_cripplingblows")
+            if cripplingBlowsRank > 0:
+                StatusEffect.Apply(self, StatusEffect.Weakness, 1)
+
+            taintedBladeRank = SkillSystem.GetSkillNodeRank("sknd_taintedblade")
+            if taintedBladeRank > 0 and random.random() < SkillSystem.ALCHEMY_TAINTED_BLADE_CHANCE * taintedBladeRank:
+                negativeEffects: list[tuple[type, int]] = []
+                for item in gc.playerCharacter.items:
+                    if not isinstance(item, ItemSystem.Potion):
+                        continue
+
+                    if getattr(item, "effectToApply", None) is not None:
+                        effectType = item.effectToApply
+                        if getattr(effectType, "positive", False) is False:
+                            negativeEffects.append((effectType, item.effectStacks))
+
+                    for effectType, stacks in getattr(item, "effects", []):
+                        if getattr(effectType, "positive", False) is False:
+                            negativeEffects.append((effectType, stacks))
+
+                if len(negativeEffects) > 0:
+                    effectType, stacks = random.choice(negativeEffects)
+                    if StatusEffect.Apply(self, effectType, stacks):
+                        try:
+                            effectName = effectType(self, stacks).GetName()
+                        except Exception:
+                            effectName = effectType.__name__
+                        print(f"{Fore.RED}Tainted Blade applies {effectName} to {self.name}!{Fore.RESET}")
+
         return super().Damage(attackInfo)
     
     def AttachActionSet(self, actionSet: Actions.ActionSet):
@@ -504,8 +590,24 @@ class BasicEnemy(AEntity):
         super().DoTurn()
         if (self.health <= 0):
             return
+        if gc.playerCharacter.HasRelic(Relics.MindshackleTalisman):
+            if random.randrange(0, 100) < int(Relics.MindshackleTalisman.SKIP_TURN_CHANCE * 100):
+                print(f"{Fore.MAGENTA}The {Style.BRIGHT}{self.name}{Style.NORMAL}{Fore.MAGENTA} is unable to act this turn!{Style.RESET_ALL}")
+                return
+        if self.stunCount > 0:
+            self.stunCount -= 1
+            print(f"{Fore.MAGENTA}The {Style.BRIGHT}{self.name}{Style.NORMAL}{Fore.MAGENTA} is stunned and cannot act this turn!{Style.RESET_ALL}")
+            return
         if self.actionSet != None:
             self.actionSet.PerformNextAction()
+
+    def HandleNewTurn(self):
+        import SkillSystem, StatusEffect
+        if self.GetEffectAmount(StatusEffect.PoisonEffect) >= SkillSystem.POISON_NEUROTOXINS_THRESHOLD:
+            neurotoxinsRank = SkillSystem.GetSkillNodeRank("sknd_neurotoxins")
+            if neurotoxinsRank > 0 and random.random() < SkillSystem.POISON_NEUROTOXINS_STUN_CHANCE * neurotoxinsRank:
+                self.ApplyStun(1)
+        return super().HandleNewTurn()
 
     def SetTags(self, *tags: str):
         self.tags = list(tags)
@@ -564,19 +666,16 @@ class NecromancerEnemy(BasicEnemy):
         gc.SpawnEnemy(undead)
 
 class TrollEnemy(BasicEnemy):
+    HEAL_PER_TURN = 5
     def __init__(self):
         super().__init__()
 
     def DoTurn(self):
-        self.Heal(5)
+        self.Heal(self.HEAL_PER_TURN)
+        print(f"The {self.name}'s wounds heal rapidly!")
         return super().DoTurn()
     
 class EldtritchEntityEnemy(BasicEnemy):
-    def __init__(self):
-        super().__init__()
-        self.AddTags(EnemyTag.CANT_BE_UNDEAD)
-        self.AddTags(EnemyTag.BOSS)
-
     def OnSpawn(self):
         self.UpdateImmunity()
         return super().OnSpawn()
@@ -594,6 +693,60 @@ class EldtritchEntityEnemy(BasicEnemy):
             print(f"{Fore.RED}{Style.BRIGHT}{self.name}{Style.NORMAL} is protected by the nearby cultists and takes no damage!{Style.RESET_ALL}")
 
         return super().Damage(attackInfo)
+    
+class PaleWardenEnemy(BasicEnemy):
+    def __init__(self):
+        super().__init__()
+        self.deadSouls = 0
+        self.phaseTwo = False
+        self.damageResistance += 0.2
+
+    def GetBoundSoulCount(self):
+        self.boundSouls = len(gc.GetAllEnemiesOfName("Bound Soul"))
+        return self.boundSouls
+    
+    def HandleNewTurn(self):
+        if self.health < self.maxHealth:
+            totalHeal = 0
+            for enemy in gc.enemiesInScene:
+                if enemy.name == "Bound Soul":
+                    totalHeal += enemy.Damage(AttInfo(5, self, True, 1))
+
+            if totalHeal > 0:
+                print(f"{Fore.YELLOW}Pale warden drains their bound souls for health...{Fore.RESET}")
+                self.Heal(totalHeal)
+
+        return super().HandleNewTurn()
+    
+    def Damage(self, attackInfo):
+        damage = super().Damage(attackInfo)
+        if not self.phaseTwo and damage != 0 and self.health <= self.maxHealth // 2:
+            print(f"{Fore.GREEN}{Style.BRIGHT}The Wardens grip on their souls weaken! Killing souls now hurts the warden!")
+            self.phaseTwo = True
+        return damage
+    
+    def Heal(self, amount):
+        healed = super().Heal(amount)
+        if self.phaseTwo and healed and self.health > self.maxHealth // 2:
+            print(f"{Fore.GREEN}{Style.BRIGHT}The Wardens grip on their souls weaken! Killing souls now hurts the warden!")
+            self.phaseTwo = False
+        return healed
+    
+    def HandleBoundSoulKilled(self):
+        self.deadSouls += 1
+        if self.phaseTwo:
+            print(f"{Fore.GREEN}The released soul turns on it's weakened captor!")
+            self.Damage(AttInfo(25, self, True, 1))
+        else:
+            print(f"{Fore.RED}The released soul returns to it's captor and heals them!")
+            self.Heal(20)
+    
+class BoundSoulEnemy(BasicEnemy):
+    def Kill(self):
+        wardens = gc.GetAllEnemiesOfName("Pale Warden")
+        for warden in wardens:
+            warden.HandleBoundSoulKilled()
+        return super().Kill()
 
 class WraithEnemy(BasicEnemy):
     def __init__(self):
@@ -678,6 +831,7 @@ class IroncladEnemy(BasicEnemy):
 
     def OnSpawn(self):
         self.SetShield(50)
+        self.actionSet.actions[0].PerformAction()
         return super().OnSpawn()
 
     def Damage(self, attackInfo):
@@ -695,6 +849,246 @@ class MagmaBeastEnemy(BasicEnemy):
             print(f"{Fore.BLUE}Water{Fore.RESET} cools down the beast damaging it even more!")
             attackInfo.damage = round(attackInfo.damage * MagmaBeastEnemy.WATER_ELEMENT_WEAKNESS_DAMAGE_MULT)
         return super().Damage(attackInfo)
+    
+class VampireSpawnEnemy(BasicEnemy):
+    BLOOD_THRESHOLD = 45      # HP healed before feeding
+    POST_FEED_DAMAGE_MULT = 0.35
+    POST_FEED_LIFESTEAL = 0.20
+
+    def __init__(self):
+        super().__init__()
+        self.lifesteal = 0.25   # starts with meaningful lifesteal
+        self.bloodConsumed = 0
+        self.hasFed = False
+
+    def Heal(self, amount: int):
+        result = super().Heal(amount)
+        if result and not self.hasFed:
+            self.bloodConsumed += round(amount * self.healingMultiplier)
+            if self.bloodConsumed >= self.BLOOD_THRESHOLD:
+                self.Feed()
+        return result
+
+    def Feed(self):
+        import Actions as AP
+        self.hasFed = True
+        self.outgoingDamageMultiplier += self.POST_FEED_DAMAGE_MULT
+        self.lifesteal += self.POST_FEED_LIFESTEAL
+        self.SetMaxHealth(round(self.maxHealth * 1.5), True)
+
+        # Add the lunge to the action set
+        lugeAction = AP.AttackAction(30).SetName("Predatory Lunge") \
+            .SetShortDesc("Rushing with supernatural speed") \
+            .SetAttackCount(2).SetChance(0.50) \
+            .SetEffectsOnHit(StatusEffect.BleedEffect, StatusEffect.BleedEffect, StatusEffect.BleedEffect)
+        self.actionSet.AppendAction(lugeAction)
+        self.actionSet.Setup(self)
+
+        print(f"{Fore.RED}{Style.BRIGHT}The Vampire Spawn has fed. Its wounds close and its eyes burn crimson.{Style.RESET_ALL}")
+        print(f"It looks stronger than before...")
+
+    def DoTurn(self):
+        import StatusEffect
+        # Passive: drain HP from the player's active Bleed each turn
+        playerBleed = gc.playerCharacter.GetEffect(StatusEffect.BleedEffect)
+        if playerBleed is not None and playerBleed.stacks > 0:
+            passiveHeal = playerBleed.stacks * 2
+            self.Heal(passiveHeal)
+            print(f"{Fore.RED}The Vampire feeds on your wounds! ({Style.BRIGHT}+{passiveHeal}{Style.NORMAL} HP){Fore.RESET}")
+        return super().DoTurn()
+
+    def GetAdditionalDesc(self) -> str:
+        fed = f" {Fore.RED}{Style.BRIGHT}[FED]{Style.RESET_ALL}" if self.hasFed else ""
+        blood = f" [{Fore.RED}Blood: {self.bloodConsumed}/{self.BLOOD_THRESHOLD}{Fore.RESET}]" if not self.hasFed else ""
+        return super().GetAdditionalDesc() + fed + blood
+    
+class MimicEnemy(BasicEnemy):
+    def __init__(self):
+        super().__init__()
+        self.items = []
+        self.lastPlayerAttack = 0
+        self.storedLureGold = 0
+
+    def DoTurn(self):
+        if hasattr(self, 'storedLureGold') and self.storedLureGold > 0:
+            taken = gc.playerCharacter.TakeGold(self.storedLureGold)
+            print(f"{Fore.RED}The Mimic reclaims its fake gold! {taken} gold vanishes from your pouch!{Fore.RESET}")
+            self.storedLureGold = 0
+        return super().DoTurn()
+
+    def Damage(self, attackInfo: AttInfo) -> int:
+        if attackInfo.attacker is gc.playerCharacter:
+            self.lastPlayerAttack = attackInfo.damage
+        return super().Damage(attackInfo)
+
+    def Kill(self):
+        if len(self.items) > 0:
+            for item in self.items:
+                gc.playerCharacter.GiveItem(item)
+        return super().Kill()
+    
+    def GetAdditionalDesc(self) -> str:
+        stored_text = ""
+        if len(self.items) > 0:
+            stored_text = ", ".join(item.name for item in self.items)
+        else:
+            return super().GetAdditionalDesc()
+        return super().GetAdditionalDesc() + f" Stored Items: {Fore.LIGHTYELLOW_EX}{stored_text}{Fore.RESET}"
+    
+class GiantSpiderEnemy(BasicEnemy):
+    def get_outgoingDamageMultiplier(self) -> float:
+        import StatusEffect
+        multiplier = super().get_outgoingDamageMultiplier()
+        if gc.playerCharacter.HasEffect(StatusEffect.WebbedEffect):
+            multiplier *= 1.6
+        return multiplier
+    outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, AEntity.set_outgoingDamageMultiplier)
+
+class SlimeEnemy(BasicEnemy):
+    def __init__(self, splitName: str):
+        super().__init__()
+        self.splitName = splitName
+        self.splitting = False
+
+    def Damage(self, attackInfo: AttInfo) -> int:
+        import Actions as AP
+        damageTaken = super().Damage(attackInfo)
+        if not self.splitting and self.health <= self.maxHealth // 2:
+            splitAction = AP.TransformAction(self.splitName, 2).SetName("Split") \
+                .SetShortDesc("Splitting into ")
+            self.actionSet = Actions.ActionSet()
+            self.actionSet.AppendAction(splitAction)
+            self.actionSet.Setup(self)
+            self.splitting = True
+
+        return damageTaken
+    
+class HollowedProphetEnemy(BasicEnemy):
+    HIT_THRESHOLD = 3
+    def __init__(self):
+        super().__init__()
+        self.hitsThisTurn = 0
+
+    def Damage(self, attackInfo):
+        damage = super().Damage(attackInfo)
+        if attackInfo.attacker is gc.playerCharacter:
+            self.hitsThisTurn += 1
+        return damage
+    
+    def DoTurn(self):
+        if self.hitsThisTurn >= self.HIT_THRESHOLD:
+            gc.playerCharacter.Damage(AttInfo(self.hitsThisTurn * 8, self))
+            print(f"Holy karmic justice has caused you to take {Fore.RED}{self.hitsThisTurn * 8}{Fore.RESET} damage for hitting {Style.BRIGHT}{self.name}{Style.NORMAL} {self.hitsThisTurn} times!")
+        self.hitsThisTurn = 0
+        return super().DoTurn()
+    
+    def GetAdditionalDesc(self):
+        return super().GetAdditionalDesc() + f" [{Fore.RED}{self.hitsThisTurn}/{self.HIT_THRESHOLD} HITS{Fore.RESET}]"
+
+class EffectOnDeathEnemy(BasicEnemy):
+    def __init__(self, effectToApply: type | None, amount = 1):
+        super().__init__()
+        self.effectToApply: type | None = None
+        self.amount = amount
+
+    def Kill(self):
+        if self.effectToApply is not None:
+            StatusEffect.Apply(gc.playerCharacter, self.effectToApply, self.amount)
+        return super().Kill()
+    
+class ShadowAssassinEnemy(BasicEnemy):
+    # starts off really strong then weakens at specified turn
+    WEAKEN_TURN = 3
+    STRONG_MULT = 1.9
+    WEAK_MULT = 0.5
+    def get_outgoingDamageMultiplier(self) -> float:
+        multiplier = super().get_outgoingDamageMultiplier()
+        if self.turnsAlive < self.WEAKEN_TURN:
+            multiplier *= self.STRONG_MULT
+        else:
+            multiplier *= self.WEAK_MULT
+        return multiplier
+    outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, AEntity.set_outgoingDamageMultiplier)
+
+class PlagueHeartEnemy(BasicEnemy):
+    SPORE_TARGET_AMOUNT = 3
+    BLOOM_STACKS = 2
+    SHIELD_PER_INFECTION = 2
+    SURGE_THRESHOLD = 8
+
+    def __init__(self):
+        super().__init__()
+        self.reformed = False
+        self.damageResistance += 0.1
+
+    def DoTurn(self):
+        infectionStacks = self.GetEffectAmount(StatusEffect.InfectionEffect)
+        if infectionStacks > 0:
+            self.AddShield(infectionStacks * self.SHIELD_PER_INFECTION)
+
+        value = super().DoTurn()
+        if self.turnsAlive % 3 == 0 and self.GetSporeCount() > 0:
+            self.actionSet.ForceAction("Virulent Bloom")
+        return value
+    
+    def GetSporeCount(self):
+        return len(gc.GetAllEnemiesOfName("Plague Spore"))
+    
+    def IsPlayerSufficientlyInfected(self):
+        return gc.playerCharacter.GetEffectAmount(StatusEffect.InfectionEffect) >= self.SURGE_THRESHOLD
+    pass
+
+class PlagueSporeEnemy(BasicEnemy):
+    def Kill(self):
+        print(f"{Fore.RED}The {self.name} bursts and spreads its infection{Fore.RESET}")
+        gc.playerCharacter.Damage(AttInfo(15, self))
+        for heart in gc.GetAllEnemiesOfType(PlagueHeartEnemy):
+            StatusEffect.Apply(heart, StatusEffect.InfectionEffect, 4)
+        return super().Kill()
+    pass
+
+class AshenRevenantEnemy(BasicEnemy):
+    WISP_TARGET_COUNT = 2
+    FURY_DAMAGE_THRESHOLD = 15
+    FURY_IGNITE_AMOUNT = 5
+    def __init__(self):
+        super().__init__()
+        self.damageResistance += 0.15
+        self.fury: int = 0
+        self.emberForm = False
+
+    def Damage(self, attackInfo):
+        damage = super().Damage(attackInfo)
+        if damage >= self.FURY_DAMAGE_THRESHOLD:
+            self.AddFury(int(damage / self.FURY_DAMAGE_THRESHOLD))
+        if self.health <= self.maxHealth * 0.4 and not self.emberForm:
+            self.emberForm = True
+            print(f"{Fore.RED}{Style.BRIGHT}The injured {self.name} enters it\'s final form!{Style.RESET_ALL}")
+
+    def AddFury(self, amount: int):
+        print(f"{Fore.RED}Fury builds within the {Style.BRIGHT}{self.name}{Style.NORMAL}. The {Style.BRIGHT}{self.name}{Style.NORMAL} gains {Style.BRIGHT}{amount} fury{Style.NORMAL}{Style.RESET_ALL}")
+        self.fury += amount
+        if self.fury >= self.GetFuryIgniteThreshold():
+            print(f"{Fore.RED}The {self.name}'s fury builds to a boiling point. {self.name} ignites it's embers!{Fore.RESET}")
+            gc.playerCharacter.Damage(AttInfo(30 + self.fury * 12, self) if not self.emberForm else AttInfo(40 + self.fury * 15, self))
+            self.fury = 0
+
+    def GetFuryIgniteThreshold(self) -> int:
+        threshold = self.FURY_IGNITE_AMOUNT
+        if self.emberForm:
+            threshold -= 1
+        return threshold
+
+    def GetTotalWisps(self):
+        return len(gc.GetAllEnemiesOfName("Cinder Wisp"))
+    
+    def GetAdditionalDesc(self):
+        return super().GetAdditionalDesc() + f" [{Fore.RED}FURY: {self.fury}/{self.GetFuryIgniteThreshold()}{Fore.RESET}]{"" if not self.emberForm else f" [{Fore.RED}EMBER FORM{Fore.RESET}]"}"
+
+class CinderWispEnemy(BasicEnemy):
+    def Kindle(self):
+        for revenant in gc.GetAllEnemiesOfType(AshenRevenantEnemy):
+            revenant.AddFury(1)
 
 class Player(AEntity):
     def __init__(self):
@@ -713,8 +1107,12 @@ class Player(AEntity):
         self.lootDropChance = 1.0
         self.experienceMultiplier = 1.0
         self._tempDamageBonus = 0.0
+        self._tempDamageResistanceBonus = 0.0
+        self._tempEvasionBonus = 0.0
         self._nextTurnDamageBonusStored = 0.0
         self.shieldMultiplier = 1.0
+        self.turnsSinceLastEvasion: int = 0
+        self.successfulEvasionsThisCombat = 0
 
         # Skill triggers
         self._ironWillReady: bool = True
@@ -850,6 +1248,9 @@ class Player(AEntity):
         # force a fail to dodge if we have death or glory skill AND are within the health threshold
         if self.GetHealthPercent() <= SkillSystem.BERSERKER_DEATH_OR_GLORY_HP_THRESHOLD and SkillSystem.GetSkillNodeRank("sknd_deathorglory") > 0:
             return False
+        ghostStepRank = SkillSystem.GetSkillNodeRank("sknd_ghoststep")
+        if self.successfulEvasionsThisCombat == 0 and ghostStepRank > 0:
+            return True
         
         return super().CheckEvasion()
     
@@ -888,8 +1289,14 @@ class Player(AEntity):
         return super().Kill()
     
     def OnEvade(self, attackInfo):
+        import SkillSystem
         if self.HasRelic(Relics.PhantomSigil) and attackInfo.attacker is not None:
             attackInfo.attacker.Damage(AttInfo(Relics.PhantomSigil.DAMAGE_REFLECT))
+        umbraVeilRank = SkillSystem.GetSkillNodeRank("sknd_umbralveil")
+        if umbraVeilRank > 0:
+            self._tempDamageResistanceBonus += umbraVeilRank * SkillSystem.SHADOW_UMBRAL_VEIL_DAMAGE_REDUCTION
+        self.turnsSinceLastEvasion = 0
+        self.successfulEvasionsThisCombat += 1
         return super().OnEvade(attackInfo)
 
     def GetGold(self) -> int:
@@ -919,10 +1326,6 @@ class Player(AEntity):
             heal_amount = Relics.VerdantCrest.HEALTH_REGEN_PER_TURN
             self.Heal(heal_amount)
             print(f"{Fore.GREEN}The Verdant Crest heals {self.name} for {heal_amount} HP!{Fore.RESET}")
-
-        thornBackRelicCount = self.GetRelicCount(Relics.ThornbackTortoiseShell)
-        if thornBackRelicCount > 0:
-            self.shield += Relics.ThornbackTortoiseShell.EXTRA_SHIELD_PER_TURN * thornBackRelicCount
 
         bloodFrenzyRank = SkillSystem.GetSkillNodeRank("sknd_bloodfrenzy")
         if bloodFrenzyRank > 0 and self.GetHealthPercent() <= SkillSystem.BERSERKER_BLOOD_FRENZY_HP_THRESHOLD:
@@ -955,11 +1358,16 @@ class Player(AEntity):
 
     
     def get_additionalRawDamage(self) -> int:
+        import SkillSystem
         additional = super().get_additionalRawDamage()
 
         hasBloodOiledChain = self.HasRelic(Relics.BloodOiledChain)
         if hasBloodOiledChain:
             additional += Relics.bloodOiledChainBonusDamagePerAttack
+
+        slipAwayRank = SkillSystem.GetSkillNodeRank("sknd_slipaway")
+        if slipAwayRank > 0 and self.turnsSinceLastEvasion == 1:
+            additional += SkillSystem.SHADOW_SLIP_AWAY_DAMAGE_BONUS * slipAwayRank
 
         return additional
     
@@ -979,7 +1387,7 @@ class Player(AEntity):
 
         merchantPowerSkillRank = SkillSystem.GetSkillNodeRank("sknd_merchantpower")
         if merchantPowerSkillRank > 0:
-            mult += (0.01 * floor(self.gold / 15)) * merchantPowerSkillRank
+            mult += (SkillSystem.GREED_MERCANTILE_POWER_DAMAGE_BONUS * floor(self.gold / SkillSystem.GREED_MERCANTILE_POWER_GOLD_THRESHOLD)) * merchantPowerSkillRank
 
         rageSparkSkillRank = SkillSystem.GetSkillNodeRank("sknd_ragespark")
         if rageSparkSkillRank > 0 and self.GetHealthPercent() <= SkillSystem.BERSERKER_RAGE_SPARK_HP_THRESHOLD:
@@ -990,5 +1398,18 @@ class Player(AEntity):
 
         return mult
     
+    def get_damageResistance(self):
+        import SkillSystem
+        resistance = super().get_damageResistance()
+        resistance += self._tempDamageResistanceBonus
+        return resistance
+    
+    def get_evasion(self):
+        evade = super().get_evasion()
+        evade += self._tempEvasionBonus
+        return evade
+    
+    evasion = property(get_evasion, AEntity.set_evasion)
+    damageResistance = property(get_damageResistance, AEntity.set_damageResistance)
     additionalRawDamage = property(get_additionalRawDamage, AEntity.set_additionalRawDamage)
     outgoingDamageMultiplier = property(get_outgoingDamageMultiplier, AEntity.set_outgoingDamageMultiplier)

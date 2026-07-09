@@ -8,6 +8,7 @@ from enum import Enum
 from colorama import Fore, Back, Style
 
 MAX_ENEMIES_IN_SCENE = 16
+ENCOUNTERS_TO_NEXT_BOSS = 25
 
 playerCharacter = Entity.Player().SetName("Player").SetMaxHealth(max=100, setHealthToo=True)
 enemiesInScene: list[Entity.BasicEnemy] = []
@@ -23,6 +24,7 @@ currentAttacksCount = 0
 currentHitsRecievedCount = 0
 currentEncounterReference: Encounters.ABaseEncounter | None = None
 totalEncountersCompleted = 0
+usedCheats: bool = False
 
 # Game settings
 class EDifficulty(str, Enum):
@@ -196,12 +198,17 @@ def GetAllEnemiesOfName(enemyName: str):
 
     return enemiesOfName
 
-def CheckEncounterStillHasEnemies(allowReward: bool = True):
+def IsEncounterActive() -> bool:
+    if (len(enemiesInScene) > 0):
+        return True
+    return False
+
+def CheckHandleEncounterEnd(allowReward: bool = True):
     import Commands
     global currentEncounterReference
     global enemiesInScene
     global playerCharacter
-    if (len(enemiesInScene) > 0):
+    if IsEncounterActive():
         return True
     if allowReward:
         currentEncounterReference.OnEncounterWin()
@@ -210,11 +217,15 @@ def CheckEncounterStillHasEnemies(allowReward: bool = True):
     OnCombatEnd()
 
 def OnCombatEnd():
+    import Commands
     global totalEncountersCompleted
+    global currentEncounterReference
     playerCharacter.tempHealth = 0
     totalEncountersCompleted += 1
+    currentEncounterReference = None
 
     EndPlayerTurn()
+    Commands.c_clear()
     ChooseNextEvent()
     SetupNextCombatEncounter()
 
@@ -263,7 +274,10 @@ def SetupNextCombatEncounter():
     global currentEncounterReference
     import Encounters as enc
 
-    if totalEncountersCompleted > 0 and totalEncountersCompleted % 26 == 0:
+    if currentEncounterReference is not None:
+        return
+
+    if totalEncountersCompleted > 0 and totalEncountersCompleted % ENCOUNTERS_TO_NEXT_BOSS == 0:
         print(f"{Fore.YELLOW}A powerful presence can be felt nearby...{Style.RESET_ALL}")
         StartEncounter(enc.GetRandomBossEncounter())
         return
@@ -271,7 +285,7 @@ def SetupNextCombatEncounter():
     encounter: Encounters.ABaseEncounter | None = None
     # Roll for a staged encounter
     eventRoll = random.randrange(0, 100)
-    if (eventRoll < 15):
+    if (eventRoll < 15 and totalEncountersCompleted >= 10): # roll a pre-defined encounter if the player has completed at least 10 encounters
         encounter = enc.GetRandomEncounter(enc.__encounter_database__)
     else:
         encounter = enc.RandomEncounter()
@@ -297,13 +311,14 @@ def OnCombatStart():
     global currentTurn
 
     isFirstTurn = True
-    currentTurn = 1
+    currentTurn = 0
     playerHasAttackedThisTurn = False
     Relics.bloodOiledChainBonusDamagePerAttack = 0
     playerCharacter.bonusAttacks = 0
     playerCharacter._ironWillReady = True
     playerCharacter._unbreakableReady = True
-    playerCharacter.HandleNewTurn()
+    playerCharacter.successfulEvasionsThisCombat = 0
+    OnPlayerTurnStart()
 
     if playerCharacter.HasRelic(Relics.TimewornHourglass):
         playerCharacter.shield += Relics.TimewornHourglass.SHIELD_AMOUNT
@@ -334,6 +349,10 @@ def OnCombatStart():
     if braceSkillRank > 0:
         playerCharacter.shield += SkillSystem.BULWARK_BRACE_DEFENSE * braceSkillRank
 
+    ghostStepRank = SkillSystem.GetSkillNodeRank("sknd_ghoststep")
+    if ghostStepRank > 0:
+        playerCharacter.bonusAttacks += 1
+
 
 def EndPlayerTurn():
     import SkillSystem
@@ -348,7 +367,11 @@ def EndPlayerTurn():
         for enemy in enemiesInScene:
             playerCharacter.shield += SkillSystem.CARRION_PUTREFIED_RESILIENCE_SHIELD_PER_STACK * putrefiedResilienceRank * enemy.GetEffectStacks(StatusEffect.RotEffect)
 
+    if not IsEncounterActive():
+        return
     ProcessEnemyTurn()
+    if not IsEncounterActive():
+        return
     OnPlayerTurnStart()
     pass
 
@@ -356,17 +379,28 @@ def OnPlayerTurnStart():
     from time import sleep
     import SkillSystem
     import StatusEffect
+    import Commands
+    import Relics
     global playerCharacter
     global playerHasAttackedThisTurn
     global playerHasAttackedLastTurn
     global currentTurn
 
-    print("\nNew turn!")
+    print(f"\n{Fore.GREEN}{'─' * 15} Your Turn {'─' * 15}{Style.RESET_ALL}")
     currentTurn += 1
+    playerCharacter.turnsSinceLastEvasion += 1
+    playerCharacter._tempDamageResistanceBonus = 0
+    playerCharacter._tempEvasionBonus = 0
     playerCharacter.stamina = playerCharacter.maxStamina
     playerCharacter.DoTurn()
     playerHasAttackedLastTurn = playerHasAttackedThisTurn
     playerHasAttackedThisTurn = False
+
+    apexVenomRank = SkillSystem.GetSkillNodeRank("sknd_apexvenom")
+    if apexVenomRank > 0:
+        for enemy in enemiesInScene:
+            if enemy.HasEffect(StatusEffect.PoisonEffect):
+                playerCharacter._tempDamageBonus += apexVenomRank * SkillSystem.POISON_APEXPOISON_DAMAGE_GAIN
 
     scorchingPresenceRank = SkillSystem.GetSkillNodeRank("sknd_scorchingpresence")
     if scorchingPresenceRank > 0:
@@ -379,6 +413,11 @@ def OnPlayerTurnStart():
         sleep(2)
         EndPlayerTurn()
     playerCharacter.HandleNewTurn()
+    
+    thornBackRelicCount = playerCharacter.GetRelicCount(Relics.ThornbackTortoiseShell)
+    if thornBackRelicCount > 0:
+        playerCharacter.shield += Relics.ThornbackTortoiseShell.EXTRA_SHIELD_PER_TURN * thornBackRelicCount
+
 
 def ProcessEnemyTurn():
     global enemiesInScene
@@ -388,7 +427,7 @@ def ProcessEnemyTurn():
     import Commands
     Commands.c_clear()
     tmpList = copy.copy(enemiesInScene)
-
+    print(f"\n{Fore.RED}{'─' * 14} Enemies Act {'─' * 14}{Style.RESET_ALL}")
     # Don't bother if there are no enemies
     if len(tmpList) <= 0:
         return
@@ -398,19 +437,9 @@ def ProcessEnemyTurn():
     
     print("Processing enemy turn!\n")
     for enemy in tmpList:
-        if playerCharacter.HasRelic(Relics.MindshackleTalisman):
-            if random.randrange(0, 100) < int(Relics.MindshackleTalisman.SKIP_TURN_CHANCE * 100):
-                print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.NORMAL}{Fore.MAGENTA} is unable to act this turn!{Style.RESET_ALL}")
-                time.sleep(0.2)
-                continue
-        if enemy.stunCount > 0:
-            enemy.stunCount -= 1
-            print(f"{Fore.MAGENTA}The {Style.BRIGHT}{enemy.name}{Style.NORMAL}{Fore.MAGENTA} is stunned and cannot act this turn!{Style.RESET_ALL}")
-            time.sleep(0.2)
-            continue
         enemy.DoTurn()
         time.sleep(0.2)
-    CheckEncounterStillHasEnemies()
+    CheckHandleEncounterEnd()
 
 def OnLevelUp():
     import SkillSystem

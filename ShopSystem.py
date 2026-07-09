@@ -11,6 +11,7 @@ class Shop:
     shopSellPrice = 1.0
     shopItemsCount = 5
     shopRelicCount = 0
+    shopGuaranteedPotions = 1
 
     def __init__(self):
         self.inventory: list[ItemSystem.AItem] = []
@@ -20,11 +21,17 @@ class Shop:
 
     def GenerateInventory(self, numItems: int):
         self.inventory.clear()
-        for _ in range(numItems):
+        guaranteedPotions = min(self.shopGuaranteedPotions, numItems)
+        # Guarantee at least one potion in the shop inventory
+        for _ in range(guaranteedPotions):
+            self.inventory.append(Items.GetRandomItem(weighted=True, rolls=1, filter=Items.Filter(ItemSystem.Potion, isBlackList=False)))
+
+        # Fill the rest of the inventory with random items
+        for _ in range(numItems - guaranteedPotions):
             item = Items.GetRandomItem(weighted=True, rolls=1, filter=Items.Filter(ItemSystem.JunkItem))
             self.inventory.append(item)
 
-        for _ in range(Shop.shopRelicCount):
+        for _ in range(self.shopRelicCount):
             relic = Relics.GetRandomRelic()
             if relic is not None:
                 self.relicsForSale.append(relic)
@@ -34,6 +41,7 @@ class Shop:
         print(f"You have {Fore.YELLOW}{Style.BRIGHT}{gc.playerCharacter.GetGold()}{Style.RESET_ALL} gold.")
 
     def OpenShop(self):
+        Commands.c_clear()
         print("Welcome strange traveller! What would you like to do?")
         self.PrintMoney()
         while True:
@@ -77,7 +85,7 @@ class Shop:
             healPriceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(healCost) else Fore.RED}{Style.BRIGHT}{healCost} gold{Style.RESET_ALL}]"
             removeStatusPriceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(removeStatusCost) else Fore.RED}{Style.BRIGHT}{removeStatusCost} gold{Style.RESET_ALL}]"
 
-            print(f"1. {healPriceTag} Heal {Style.BRIGHT}{Fore.GREEN}{healAmount}{Style.RESET_ALL} health")
+            print(f"1. {healPriceTag} Heal {Style.BRIGHT}{Fore.GREEN}{healAmount}{Style.RESET_ALL} health. Current health: {Style.BRIGHT}{Fore.GREEN}{gc.playerCharacter.health}/{gc.playerCharacter.maxHealth}{Style.RESET_ALL}")
             print(f"2. {removeStatusPriceTag} Remove all negative status effects")
             print("3. Exit Services")
             choice = input("Enter your choice: ")
@@ -116,6 +124,7 @@ class Shop:
         self.OpenShop()
         
     def UpgradeItems(self):
+        from RomanNumerals import IntToRoman
         self.PrintMoney()
         print("Choose an item to upgrade!")
 
@@ -130,7 +139,7 @@ class Shop:
         for index, item in enumerate(levelableItems):
             cost = int(item.GetGoldCost() * Shop.shopPrices) * item.itemLevel # type: ignore
             priceTag = f"[{Fore.GREEN if gc.playerCharacter.CanAfford(cost) else Fore.RED}{Style.BRIGHT}{cost} gold{Style.RESET_ALL}]"
-            print(f"{index + 1}. {priceTag} {item.GetDesc()}") # type: ignore
+            print(f"{index + 1}. {priceTag} {item.name} (Level {IntToRoman(item.itemLevel)} → {IntToRoman(item.itemLevel + 1)}): {item.CalculateDamageForLevel(item.itemLevel)} dmg → {item.CalculateDamageForLevel(item.itemLevel + 1)} dmg") # type: ignore
 
         if len(levelableItems) <= 0:
             print(f"No upgradable items!")
@@ -209,21 +218,31 @@ class Shop:
             sellPriceTag = f"[{Fore.YELLOW}{Style.BRIGHT}+{sellPrice} gold{Style.RESET_ALL}]"
             print(f"{index + 1}. {sellPriceTag} {item.GetDesc()}")
 
-        choices = input("\nEnter the item(s) you wish to sell, or '0' to cancel: ").strip().split()
+        choices = input("\nEnter the item(s) you wish to sell, or blank to cancel: ").strip().split()
         toSell: list[ItemSystem.AItem] = []
         toSellHumanReadable = []
+
+        # If no choices are made, or if the only choice is blank, open the shop again
+        if len(choices) <= 0 or (len(choices) == 1 and choices[0] == ""):
+            self.OpenShop()
+            return
+
         for choice in choices:
             if choice.isdigit():
                 choiceIndex = int(choice) - 1
+                if choiceIndex < 0 or choiceIndex >= len(gc.playerCharacter.items):
+                    print(f"Invalid item selection: {choice}. Skipping.")
+                    continue
                 if choiceIndex < len(gc.playerCharacter.items):
                     toSell.append(gc.playerCharacter.items[choiceIndex])
                     toSellHumanReadable.append(gc.playerCharacter.items[choiceIndex].name)
 
-        if Commands.PromptYesNoQuestion(f"Are you sure you want to sell: {toSellHumanReadable}?", False):
+        if len(toSell) > 0 and Commands.PromptYesNoQuestion(f"Are you sure you want to sell: {toSellHumanReadable}?", False):
             for item in toSell:
                 self.SellItem(item)
 
         self.OpenShop()
+        return
 
     def SellItem(self, item):
         try:

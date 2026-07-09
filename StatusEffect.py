@@ -1,8 +1,9 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from colorama import Fore, Style
-from Entity import AEntity, Player
+from Entity import AEntity, Player, BasicEnemy
 from AttackInfo import AttInfo
+from EnemyTags import EnemyTag
 
 # Abstract effect class, derive effects from this
 class AEffect(ABC):
@@ -81,6 +82,7 @@ class PoisonEffect(AEffect):
     def OnEffectTick(self):
         import GameCore as gc
         import Relics
+        import SkillSystem
         damage = self.stacks
 
         wyrmSpineCharmCount = gc.playerCharacter.GetRelicCount(Relics.WyrmSpineCharm)
@@ -89,7 +91,14 @@ class PoisonEffect(AEffect):
             for _ in range(wyrmSpineCharmCount * Relics.WyrmSpineCharm.EXTRA_TICKS):
                 self.attachedEntity.Damage(AttInfo(damage, None, True))
 
+        potentDoseRank = SkillSystem.GetSkillNodeRank("sknd_potentdose")
+        if potentDoseRank > 0:
+            damage *= 1 + potentDoseRank * SkillSystem.POISON_POTENT_DOSE_DAMAGE
+
         self.attachedEntity.Damage(AttInfo(damage, None, True))
+        parasiticFeedingRank = SkillSystem.GetSkillNodeRank("sknd_parasiticfeeding")
+        if parasiticFeedingRank > 0:
+            gc.playerCharacter.Heal(parasiticFeedingRank * SkillSystem.POISON_PARASITIC_FEEDING_HEALING)
 
         return super().OnEffectTick()
     
@@ -157,18 +166,41 @@ class BoggedEffect(AEffect):
         print(f"{self.attachedEntity.name} feels even slower.")
         return super().AddStack(count)
     
+# really just a stronger bogged effect, but with a different name for flavor
+class WebbedEffect(AEffect):
+    def OnEffectTick(self):
+        if type(self.attachedEntity is Player):
+            self.attachedEntity.stamina -= 2 # type: ignore
+        return super().OnEffectTick()
+    
+    def OnEffectApply(self):
+        print(f"{self.attachedEntity.name} is webbed!")
+        return super().OnEffectApply()
+    
+    def GetName(self):
+        return f"{Fore.LIGHTBLACK_EX}Webbed{Style.NORMAL}{Fore.RESET}"
+    
+    def CanBeApplied(self):
+        from Entity import Player
+        return type(self.attachedEntity) is Player
+    
+    def AddStack(self, count):
+        print(f"{self.attachedEntity.name} feels even more trapped.")
+        return super().AddStack(count)
+    
 class BlessedEffect(AEffect):
     positive: bool = True
 
     def OnEffectApply(self):
         print(f"{self.attachedEntity.name} has been blessed!")
+        self.attachedEntity.ClearStatusEffects(True)
         return super().OnEffectApply()
     
     def GetName(self):
         return f"{Fore.YELLOW}{Style.BRIGHT}Blessed{Style.NORMAL}{Fore.RESET}"
     
 class OnFireEffect(AEffect):
-    CHANCE_TO_SPREAD: float = 0.7
+    CHANCE_TO_SPREAD: float = 0.3
     def OnEffectApply(self):
         print(f"{self.attachedEntity.name} erupts into flame!")
         return super().OnEffectApply()
@@ -184,20 +216,25 @@ class OnFireEffect(AEffect):
         from ElementTags import ElementTag
         # chance to spread to random enemy
         controlledBurnRank = SkillSystem.GetSkillNodeRank("sknd_controlledburn")
-        if random.random() <= (OnFireEffect.CHANCE_TO_SPREAD + (controlledBurnRank * SkillSystem.PYRO_ACCELERANT_DAMAGE_BONUS)) and len(gc.enemiesInScene) > 0:
-            entity: AEntity = random.choice(gc.enemiesInScene)
-            print(f"The flames spread to {entity.name}")
-            Apply(entity, OnFireEffect, 1)
+        if random.random() <= (OnFireEffect.CHANCE_TO_SPREAD + (controlledBurnRank * SkillSystem.PYRO_SPREAD_CHANCE)) and len(gc.enemiesInScene) > 0:
+            self.Spread()
         damage = random.randrange(3, 16)
         accelerantRank = SkillSystem.GetSkillNodeRank("sknd_accelerant")
         if accelerantRank > 0:
             damage *= int(1 + SkillSystem.PYRO_ACCELERANT_DAMAGE_BONUS * accelerantRank)
-        self.attachedEntity.Damage(AttInfo(damage, None, True).AddElements(ElementTag.FIRE))
         everlastingEmbersRank = SkillSystem.GetSkillNodeRank("sknd_everlastingembers")
         if everlastingEmbersRank > 0:
-            return
+            damage += SkillSystem.PYRO_EVERLASTING_EMBERS_DAMAGE_INCREASE * everlastingEmbersRank * self.stacks
+        self.attachedEntity.Damage(AttInfo(damage, None, True).AddElements(ElementTag.FIRE))
 
         return super().OnEffectTick()
+    
+    def Spread(self):
+        import random
+        import GameCore as gc
+        entity: AEntity = random.choice([gc.playerCharacter] + gc.enemiesInScene)
+        print(f"The flames spread to {entity.name}")
+        Apply(entity, OnFireEffect, 1)
     
     def GetName(self):
         return f"{Fore.RED}{Style.BRIGHT}On Fire{Style.NORMAL}{Fore.RESET}"
@@ -278,7 +315,7 @@ class Resistance(AEffect):
     
 class CursedEffect(AEffect):
     positive: bool = False
-    HEALING_REDUCTION: float = 1.0
+    HEALING_REDUCTION: float = 0.5
 
     def OnEffectApply(self):
         print(f"{self.attachedEntity.name} has been cursed!")
@@ -318,6 +355,10 @@ class InfectionEffect(AEffect):
             if acceleratedDecayRank > 0:
                 chance += SkillSystem.CARRION_ACCELERATED_DECAY_ROT_CHANCE_BONUS * acceleratedDecayRank
 
+        if isinstance(self.attachedEntity, BasicEnemy):
+            if self.attachedEntity.HasTag(EnemyTag.INFECTIOUS):
+                return super().OnEffectTick()
+
         if random.random() < InfectionEffect.ROT_CHANCE_PER_TICK:
             Apply(self.attachedEntity, RotEffect, self.stacks)
             print(f"{self.attachedEntity.name} has contracted rot from the infection!")
@@ -333,6 +374,9 @@ class InfectionEffect(AEffect):
 
     def OnEffectApply(self):
         print(f"{self.attachedEntity.name} is infected!")
+        if isinstance(self.attachedEntity, BasicEnemy):
+            if self.attachedEntity.HasTag(EnemyTag.INFECTIOUS):
+                return super().OnEffectApply()
         self.attachedEntity.healingMultiplier -= InfectionEffect.HEALING_REDUCTION
         return super().OnEffectApply()
     
@@ -341,6 +385,9 @@ class InfectionEffect(AEffect):
         return super().AddStack(count)
     
     def OnEffectRemove(self):
+        if isinstance(self.attachedEntity, BasicEnemy):
+            if self.attachedEntity.HasTag(EnemyTag.INFECTIOUS):
+                return super().OnEffectRemove()
         self.attachedEntity.healingMultiplier += InfectionEffect.HEALING_REDUCTION
         return super().OnEffectRemove()
     
@@ -357,6 +404,10 @@ class RotEffect(AEffect):
         self._max_health_reduced: int = 0
 
     def OnEffectTick(self):
+
+        if isinstance(self.attachedEntity, BasicEnemy):
+            if self.attachedEntity.HasTag(EnemyTag.INFECTIOUS):
+                return
         self.attachedEntity.Damage(AttInfo(RotEffect.DAMAGE_PER_TICK, None, True))
         if self.attachedEntity.maxHealth > RotEffect.MAX_HEALTH_LOSS_PER_TICK:
             self.attachedEntity.SetMaxHealth(self.attachedEntity.maxHealth - RotEffect.MAX_HEALTH_LOSS_PER_TICK)
@@ -368,6 +419,9 @@ class RotEffect(AEffect):
     
     def OnEffectRemove(self):
         # restore lost max health
+        if isinstance(self.attachedEntity, BasicEnemy):
+            if self.attachedEntity.HasTag(EnemyTag.INFECTIOUS):
+                return super().OnEffectRemove()
         self.attachedEntity.SetMaxHealth(self.attachedEntity.maxHealth + self._max_health_reduced)
         return super().OnEffectRemove()
     

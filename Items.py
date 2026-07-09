@@ -10,7 +10,7 @@ class Filter():
     isBlackList: bool = True
     pass
 
-def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: Filter | None = None, maxRarity: int = 100, removeItems: list[ItemSystem.AItem] | None = None) -> ItemSystem.AItem | None:
+def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: Filter | None = None, rarityRange: range = range(0, 101), removeItems: list[ItemSystem.AItem] | None = None) -> ItemSystem.AItem | None:
     items = list()
     if filter is not None:
         filterList = list(filter.typeFilter) if type(filter.typeFilter) is Iterable else [filter.typeFilter]
@@ -19,7 +19,7 @@ def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: Filter | None 
         items = copy.deepcopy(ItemSystem.itemsList)
 
     for item in reversed(items):
-        if item.rarity > maxRarity:
+        if item.rarity not in rarityRange:
             items.remove(item)
     
     if removeItems is not None:
@@ -54,7 +54,7 @@ def GetRandomItem(weighted: bool = False, rolls: int = 1, filter: Filter | None 
 
 def GetItemByName(name: str) -> ItemSystem.AItem | None:
     for item in ItemSystem.itemsList:
-        if item.name == name:
+        if item._name == name:
             return item
     print("Unknown item: \"" + name + "\"")
     return None
@@ -91,3 +91,13 @@ def GetListWithWhitelist(filter: list[type]) -> list[ItemSystem.AItem]:
                 items.append(item)
                 break
     return items
+
+def ModifyPotionUses(amount):
+    import GameCore as gc
+    for item in ItemSystem.itemsList:
+        if issubclass(type(item), ItemSystem.Potion):
+            item.useCount += amount
+        
+    for item in gc.playerCharacter.items:
+        if issubclass(type(item), ItemSystem.Potion):
+            item.useCount += amount

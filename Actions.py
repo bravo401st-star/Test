@@ -15,6 +15,7 @@ class AAction(ABC):
         self.parentEntity: Entity.BasicEnemy = Entity.BasicEnemy()
         self.repeatAmount: int | range = 1
         self.actionColor = Fore.RED
+        self.forced = False
 
     def SetName(self, name: str):
         self.actionName = name
@@ -39,37 +40,52 @@ class AAction(ABC):
         return self
     
     def CanDoAction(self) -> bool:
+        if self.forced:
+            return True
+        if hasattr(self, 'condition') and self.condition is not None:
+            return self.condition(self.parentEntity)
         return True
+    
+    def SetCondition(self, condition):
+        self.condition = condition
+        return self
     
     def SetColor(self, color):
         self.actionColor = color
         return self
     
+    def OnActionSet(self):
+        pass
+    
     @abstractmethod
     def PerformAction(self):
+        self.forced = False
         pass
 
 class AttackAction(AAction):
-    def __init__(self, damage: int):
+    def __init__(self, damage: int, ignoreEvasion: bool = False, shieldPierce: float = 0):
         self.damage = damage
         self.effectsOnHit: list[type] = []
         self.element: ElementTag | None = None
-        self.attackCount: int = 1
+        self.attackCount: int | range = 1
+        self.attacksToPerform: int = 1
+        self.ignoreEvasion = ignoreEvasion
+        self.shieldPierce = shieldPierce
         super().__init__()
 
     def PerformAction(self):
         from AttackInfo import AttInfo
         import StatusEffect
 
-        for _ in range(self.attackCount):
-            gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity).AddElements(self.element))
+        for _ in range(self.attacksToPerform):
+            gc.playerCharacter.Damage(AttInfo(self.CalculateDamage(), self.parentEntity, self.ignoreEvasion, self.shieldPierce).AddElements(self.element))
             for effect in self.effectsOnHit:
                 StatusEffect.Apply(gc.playerCharacter, effect)
 
         return super().PerformAction()
     
     def GetShortDesc(self):
-        timesText = "!" if self.attackCount <= 1 else f" {self.attackCount} times!"
+        timesText = "!" if self.attacksToPerform <= 1 else f" {self.attacksToPerform} times!"
         return super().GetShortDesc() + f" for {round(self.CalculateDamage() * (1 - gc.playerCharacter.GetDamageResist()))} damage{timesText}" # I am well aware this has issues
     
     def SetEffectsOnHit(self, *effects):
@@ -81,12 +97,23 @@ class AttackAction(AAction):
         self.element = element
         return self
     
-    def SetAttackCount(self, count: int):
+    def SetAttackCount(self, count: int | range):
         self.attackCount = count
         return self
     
+    def OnActionSet(self):
+        if type(self.attackCount) is range:
+            self.attacksToPerform = random.randrange(self.attackCount.start, self.attackCount.stop)
+        else:
+            self.attacksToPerform = self.attackCount
+        return super().OnActionSet()
+    
     def CalculateDamage(self):
         return round((self.damage + self.parentEntity.additionalRawDamage) * self.parentEntity.outgoingDamageMultiplier)
+    
+class PaleWardenSpecialAttack(AttackAction):
+    def CalculateDamage(self):
+        return super().CalculateDamage() * self.parentEntity.deadSouls
     
 class HealAction(AAction):
     def __init__(self, healing: int):
@@ -95,6 +122,8 @@ class HealAction(AAction):
         self.actionColor = Fore.YELLOW
 
     def CanDoAction(self):
+        if not super().CanDoAction():
+            return False
         return self.parentEntity.health < self.parentEntity.maxHealth
 
     def PerformAction(self):
@@ -140,6 +169,11 @@ class SummonAction(AAction):
 
         return super().GetShortDesc() + f" {name}!"
     
+class KindleAction(AAction):
+    def PerformAction(self):
+        self.parentEntity.Kindle()
+        return super().PerformAction()
+    
 class ShieldRandomAlly(AAction):
     def __init__(self, shieldAmount: int, times: int):
         super().__init__()
@@ -164,6 +198,8 @@ class ShieldRandomAlly(AAction):
         return super().GetShortDesc() + f" for {self.shieldAmount}, {self.timesToPerform} times"
     
     def CanDoAction(self):
+        if not super().CanDoAction():
+            return False
         return len(gc.enemiesInScene) > 1
     
 class HealRandomUndeadAction(AAction):
@@ -173,6 +209,8 @@ class HealRandomUndeadAction(AAction):
         self.actionColor = Fore.YELLOW
 
     def CanDoAction(self):
+        if not super().CanDoAction():
+            return False
         return gc.GetRandomEnemyByTag(EnemyTag.UNDEAD) != None
     
     def GetRandomUndead(self):
@@ -196,8 +234,119 @@ class TauntAction(AAction):
         print(f"[#{gc.GetIndexOfEnemy(self.parentEntity)}][LVL {self.parentEntity.level}] {self.parentEntity.name}: {self.tauntText}")
         return super().PerformAction()
     
+class BloodDrainAction(AAction):
+    DRAIN_PERCENT = 0.14
+    MIN_DRAIN = 6
+
+    def PerformAction(self):
+        from AttackInfo import AttInfo
+        drainAmount = max(self.MIN_DRAIN, int(gc.playerCharacter.health * self.DRAIN_PERCENT))
+        # AttInfo with no attacker — we handle the heal manually so lifesteal doesn't double-dip
+        actualDamage = gc.playerCharacter.Damage(AttInfo(drainAmount, None, False))
+        if actualDamage > 0:
+            self.parentEntity.Heal(actualDamage)
+            print(f"{Fore.RED}The Vampire Spawn drains {actualDamage} HP directly from your veins!{Fore.RESET}")
+        return super().PerformAction()
+
+    def GetShortDesc(self):
+        estimate = max(self.MIN_DRAIN, int(gc.playerCharacter.health * self.DRAIN_PERCENT))
+        return f"Preparing to drain ~{estimate} HP from you"
+    
+class MimicSwallowAction(AAction):
+    MAX_SWALLOWABLE_ITEMS = 3
+    def __init__(self):
+        import ItemSystem
+        super().__init__()
+        self.actionColor = Fore.RED
+        self.itemTarget: ItemSystem.AItem | None = None
+
+    def CanDoAction(self):
+        if not super().CanDoAction():
+            return False
+        flag = self.GetRandomItemFromPlayer() is not None
+        if hasattr(self.parentEntity, "items"):
+            if len(self.parentEntity.items) >= self.MAX_SWALLOWABLE_ITEMS:
+                flag = False
+        return flag
+
+    def PerformAction(self):
+        import GameCore as gc
+        import ItemSystem
+        import copy
+        if self.itemTarget is None:
+            return super().PerformAction()
+        
+        gc.playerCharacter.RemoveItem(self.itemTarget.name)
+        print(f"{self.parentEntity.name} swallowed your {self.itemTarget.name}!")
+        
+        # add item to mimic's inventory
+        if not hasattr(self.parentEntity, "items"):
+            self.parentEntity.items = []
+        self.parentEntity.items.append(copy.copy(self.itemTarget))
+        self.itemTarget = None
+
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        if self.itemTarget is not None:
+            return super().GetShortDesc() + f" your {self.itemTarget.name}!"
+        
+        # Fallback
+        return super().GetShortDesc() + " your item!"
+    
+    def OnActionSet(self):
+        self.itemTarget = self.GetRandomItemFromPlayer()
+        return super().OnActionSet()
+    
+    def GetRandomItemFromPlayer(self):
+        import ItemSystem
+        if len(gc.playerCharacter.items) <= 0:
+            return None
+        items = [item for item in gc.playerCharacter.items if not isinstance(item, ItemSystem.Weapon)]
+        weapons = [item for item in gc.playerCharacter.items if isinstance(item, ItemSystem.Weapon)]
+
+        if len(items) <= 0 and len(weapons) <= 1:
+            return None
+        
+        if len(weapons) <= 1:
+            return random.choice(items)
+        
+        return random.choice(items + weapons)
+    
+class MimicImitateAction(AttackAction):
+    def __init__(self):
+        super().__init__(0)
+        self.actionColor = Fore.RED
+
+    def CanDoAction(self):
+        if not super().CanDoAction():
+            return False
+        return hasattr(self.parentEntity, "lastPlayerAttack") and self.parentEntity.lastPlayerAttack > 0
+
+    def CalculateDamage(self):
+        from AttackInfo import AttInfo
+        lastDmg = getattr(self.parentEntity, 'lastPlayerAttack', 8)
+        self.damage = max(8, lastDmg)  # floor of 8 so it's never trivial
+        return super().CalculateDamage()
+    
+    def GetShortDesc(self):
+        return f"Imitating your last attack for {round(self.CalculateDamage() * (1 - gc.playerCharacter.GetDamageResist()))} damage!"
+    
+class MimicLureAction(AAction):
+    def __init__(self):
+        super().__init__()
+        self.actionColor = Fore.YELLOW
+        self.lureAmount = 0
+    
+    def PerformAction(self):
+        self.lureAmount = random.randrange(15, 45)
+        gc.playerCharacter.GiveGold(self.lureAmount)
+        self.parentEntity.storedLureGold = (getattr(self.parentEntity, 'storedLureGold', 0) + self.lureAmount)
+        print(f"{Fore.YELLOW}The Mimic spits out {self.lureAmount} gold! ...it glitters enticingly.{Fore.RESET}")
+        return super().PerformAction()
+    
 class SacrificeAction(AAction):
-    def __init__(self, healthSacrifice: int, allyName: str):
+    def __init__(self, healthSacrifice: int, allyName: str, damageBuff: float):
         super().__init__()
         self.healthSacrifice = healthSacrifice
         self.allyName = allyName
@@ -213,7 +362,7 @@ class SacrificeAction(AAction):
             
         for ally in allies:
             if ally.name == self.allyName:
-                ally.outgoingDamageMultiplier += 0.15
+                ally.outgoingDamageMultiplier += self.damageBuff
                 print(f"{ally.name} feels empowered by the sacrifice!")
                 break
         self.parentEntity.Damage(AttackInfo.AttInfo(self.healthSacrifice, self.parentEntity, True, 1.0))
@@ -246,25 +395,36 @@ class NothingAction(AAction):
         return super().PerformAction()
     
 class TransformAction(AAction):
-    def __init__(self, toIndex: int):
+    def __init__(self, transformTo: int | str, count: int = 1):
         super().__init__()
-        self.toIndex = toIndex
+        self.transformTo = transformTo
+        self.count = count
 
     def PerformAction(self):
         import Enemies
-        enemyToCreate = Enemies.CreateEnemyByIndex(self.toIndex)
-        if enemyToCreate is None:
-            return super().PerformAction()
-        print(f"{self.parentEntity.name} has transformed into {enemyToCreate.name}")
-        gc.SpawnEnemy(enemyToCreate, True)
+        for _ in range(self.count):
+            enemy_to_spawn = None
+            if isinstance(self.transformTo, int):
+                enemy_to_spawn = Enemies.CreateEnemyByIndex(self.transformTo, self.parentEntity.level)
+            else:
+                enemy_to_spawn = Enemies.CreateEnemyByName(self.transformTo, self.parentEntity.level)
+            if enemy_to_spawn is None:
+                return super().PerformAction()
+            print(f"{self.parentEntity.name} has transformed into {enemy_to_spawn.name}")
+            gc.SpawnEnemy(enemy_to_spawn, True)
+
         gc.RemoveEnemyFromScene(self.parentEntity)
         return super().PerformAction()
     
     def GetShortDesc(self):
         import Enemies
-        enemy = Enemies.GetByIndex(self.toIndex)
-        if enemy is not None:
-            return super().GetShortDesc() + enemy.name
+        enemy_to_spawn = None
+        if isinstance(self.transformTo, int):
+            enemy_to_spawn = Enemies.GetByIndex(self.transformTo)
+        else:
+            enemy_to_spawn = Enemies.GetByName(self.transformTo)
+        if enemy_to_spawn is not None:
+            return super().GetShortDesc() + enemy_to_spawn.name
         return super().GetShortDesc()
     
 class RemovePlayerBuffsAndAttackAction(AttackAction):
@@ -328,7 +488,7 @@ class ApplyEffectToPlayerAction(AAction):
     def PerformAction(self):
         import StatusEffect
         StatusEffect.Apply(gc.playerCharacter, self.effect, self.stacks)
-        print(f"{self.parentEntity.name} applies {self.effect.GetName()} to the player!")
+        print(f"{self.parentEntity.name} applies {self.effect(None).GetName()} to the player!")
         return super().PerformAction()
     
 class DamageBasedOnThornsAction(AttackAction):
@@ -381,6 +541,37 @@ class TotallyHarmlessWiggleAction(AAction):
         self.parentEntity.health += TotallyHarmlessWiggleAction.HEALTH_INCREMENT
         print(f"{self.parentEntity.name} wiggles harmlessly...")
         return super().PerformAction()
+    
+class HemorrhageFeastAction(AAction):
+    BLEED_THRESHOLD = 4       # Minimum stacks to trigger
+    DAMAGE_PER_STACK = 5      # Damage per Bleed stack consumed
+    STACKS_CONSUMED = 3       # How many Bleed stacks it eats
+    HEAL_FLAT = 18
+
+    def CanDoAction(self):
+        if not super().CanDoAction():
+            return False
+        import StatusEffect
+        bleed = gc.playerCharacter.GetEffect(StatusEffect.BleedEffect)
+        return bleed is not None and bleed.stacks >= self.BLEED_THRESHOLD
+
+    def PerformAction(self):
+        import StatusEffect
+        from AttackInfo import AttInfo
+        bleed = gc.playerCharacter.GetEffect(StatusEffect.BleedEffect)
+        damage = self.DAMAGE_PER_STACK * bleed.stacks
+        gc.playerCharacter.Damage(AttInfo(damage, None, True))  # ignores evasion - it's feeding on existing wounds
+        bleed.RemoveStack(self.STACKS_CONSUMED)
+        self.parentEntity.Heal(self.HEAL_FLAT)
+        print(f"{Fore.RED}{Style.BRIGHT}The Vampire feasts on your hemorrhaging wounds!{Style.RESET_ALL}")
+        return super().PerformAction()
+
+    def GetShortDesc(self):
+        import StatusEffect
+        bleed = gc.playerCharacter.GetEffect(StatusEffect.BleedEffect)
+        if bleed is None or bleed.stacks < self.BLEED_THRESHOLD:
+            return "Watching your wounds... (needs 4+ Bleed)"
+        return f"Preparing to feast on your {bleed.stacks} Bleed stacks ({bleed.stacks * self.DAMAGE_PER_STACK} damage)!"
     
 class SorrowFeedAction(AAction):
     def __init__(self, damagePerDebuff: int = 1):
@@ -438,6 +629,32 @@ class EscapeAction(AAction):
         print(f"{Fore.RED}{Style.BRIGHT}{self.parentEntity.name}{Style.NORMAL} escaped!{Style.RESET_ALL}")
         return super().PerformAction()
     
+class VirulentBloomAction(AAction):
+    def __init__(self):
+        super().__init__()
+
+    def PerformAction(self):
+        import StatusEffect
+        StatusEffect.Apply(gc.playerCharacter, StatusEffect.InfectionEffect, self.parentEntity.GetSporeCount() * self.parentEntity.BLOOM_STACKS)
+        return super().PerformAction()
+    
+    def GetShortDesc(self):
+        return f"Blooming {self.parentEntity.GetSporeCount()} spores to apply {self.parentEntity.GetSporeCount() * self.parentEntity.BLOOM_STACKS} infection"
+    
+class ConsumeSporeAction(AAction):
+    def __init__(self):
+        super().__init__()
+
+    def PerformAction(self):
+        if self.parentEntity.GetSporeCount() < self.parentEntity.SPORE_TARGET_AMOUNT:
+            self.parentEntity.Heal(25)
+        return super().PerformAction()
+    
+class PlagueHeartReformAction(SummonAction):
+    def PerformAction(self):
+        self.parentEntity.reformed = True
+        return super().PerformAction()
+    
 
 #############################################################################
 # Action set class
@@ -451,23 +668,37 @@ class ActionSet():
     def Setup(self, entity):
         for act in self.actions:
             act.parentEntity = entity
-        self.SetCurrentAction(self.actionIndex)
+        self.SetCurrentActionIndex(self.actionIndex)
         self.ValidateCurrentAction()
 
-    def ValidateCurrentAction(self, checkChance: bool = True):
-        if not self.GetNextAction().CanDoAction() or (checkChance and not random.random() <= self.GetNextAction().chance):
-            self.SetCurrentAction(self.CycleNextAction())
+    def ForceAction(self, actionToForce: int | str):
+        if isinstance(actionToForce, int):
+            self.SetCurrentActionIndex(actionToForce)
+            self.GetAction().forced = True
+        else:
+            for i, action in enumerate(self.actions):
+                if action.actionName == actionToForce:
+                    self.SetCurrentActionIndex(i)
+                    self.GetAction().forced = True
+                    break
 
-    def GetNextAction(self, index: int | None = None) -> AAction | None:
+    def ValidateCurrentAction(self, checkChance: bool = True):
+        if self.GetAction().forced:
+            return
+        if not self.GetAction().CanDoAction() or (checkChance and not random.random() <= self.GetAction().chance):
+            self.SetCurrentActionIndex(self.CycleNextAction())
+
+    def GetAction(self, index: int | None = None) -> AAction | None:
         if len(self.actions) <= 0:
             return None
         if type(index) is not int:
             index = self.actionIndex
         return self.actions[index]
     
-    def SetCurrentAction(self, index: int):
+    def SetCurrentActionIndex(self, index: int):
         self.actionIndex = index
         self.currentActionPerformedCount = 0
+        self.actions[self.actionIndex].OnActionSet()
 
         # Figure out how many times to repeat this action
         repeatRange: int | range = self.actions[self.actionIndex].repeatAmount
@@ -475,7 +706,7 @@ class ActionSet():
         pass
         
     def PerformNextAction(self):
-        nextAction = self.GetNextAction()
+        nextAction = self.GetAction()
         if nextAction is None:
             return
         
@@ -486,7 +717,7 @@ class ActionSet():
         if (self.toRepeat > self.currentActionPerformedCount):
             return
 
-        self.SetCurrentAction(self.CycleNextAction())
+        self.SetCurrentActionIndex(self.CycleNextAction())
 
     def AppendAction(self, action: AAction):
         if issubclass(type(action), AAction) != True:
@@ -503,7 +734,7 @@ class ActionSet():
             if (index >= len(self.actions)):
                 index = 0
 
-            nextAction = self.GetNextAction(index)
+            nextAction = self.GetAction(index)
             if nextAction is None:
                 break
 

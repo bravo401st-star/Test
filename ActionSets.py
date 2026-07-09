@@ -55,7 +55,7 @@ mossbound_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.Resist
 
 crystal_husk_action_set = AP.ActionSet()
 crystal_husk_action_set.AppendAction(AP.AttackAction(8).SetName("Jab").SetShortDesc("Preparing to jab"))
-crystal_husk_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Vulnerablity, 3).SetName("Resonance").SetShortDesc("Preparing to resonate"))
+crystal_husk_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Vulnerablity, 3).SetName("Resonance").SetShortDesc("Preparing to resonate").SetChance(0.6))
 
 crystal_shard_action_set = AP.ActionSet()
 crystal_shard_action_set.AppendAction(AP.AttackAction(15).SetName("Jab").SetShortDesc("Preparing to jab"))
@@ -81,10 +81,10 @@ carrion_maggot_action_set.AppendAction(AP.TotallyHarmlessWiggleAction().SetName(
 carrion_maggot_action_set.AppendAction(AP.TransformAction(16).SetName("Transform").SetShortDesc("Transforming into "))
 
 carrion_horror_action_set = AP.ActionSet()
-carrion_horror_action_set.AppendAction(AP.AttackAction(30).SetName("Devour").SetShortDesc("Preparing to devour").SetAttackCount(3).SetEffectsOnHit(StatusEffect.InfectionEffect, StatusEffect.PoisonEffect))
-carrion_horror_action_set.AppendAction(AP.AttackAction(2).SetName("RendingFlurry").SetShortDesc("Preparing to rend").SetAttackCount(15).SetEffectsOnHit(StatusEffect.InfectionEffect).SetRepeat(range(3)))
+carrion_horror_action_set.AppendAction(AP.AttackAction(20).SetName("Devour").SetShortDesc("Preparing to devour").SetAttackCount(3).SetEffectsOnHit(StatusEffect.InfectionEffect, StatusEffect.PoisonEffect))
+carrion_horror_action_set.AppendAction(AP.AttackAction(2).SetName("RendingFlurry").SetShortDesc("Preparing to rend").SetAttackCount(10).SetEffectsOnHit(StatusEffect.InfectionEffect).SetChance(0.5))
 carrion_horror_action_set.AppendAction(AP.SummonAction(15, 3).SetName("Spawn").SetShortDesc("Preparing to spawn").SetChance(0.5))
-carrion_horror_action_set.AppendAction(AP.ShieldAndHealAction(100, 25).SetName("Bury").SetShortDesc("Preparing to bury itself").SetChance(0.5))
+carrion_horror_action_set.AppendAction(AP.ShieldAndHealAction(100, 50).SetName("Bury").SetShortDesc("Preparing to bury itself").SetChance(0.5))
 
 ironclad_action_set = AP.ActionSet()
 ironclad_action_set.AppendAction(AP.ShieldRandomAlly(20, 3).SetName("Protect").SetShortDesc("Shielding a random ally").SetRepeat(3))
@@ -100,12 +100,88 @@ goblin_warlord_action_set.AppendAction(AP.AttackAction(20).SetName("Cleave").Set
 goblin_warlord_action_set.AppendAction(AP.BuffAlliesAction(10).SetName("Rally").SetShortDesc("Preparing to rally allies").SetChance(0.75))
 goblin_warlord_action_set.AppendAction(AP.SummonAction("Goblin", 3).SetName("Summon").SetShortDesc("Preparing to call reinforcements").SetChance(0.5))
 
-cultist_action_set = AP.ActionSet()
-cultist_action_set.AppendAction(AP.AttackAction(4).SetName("Dark Strike").SetShortDesc("Preparing to strike with dark tendrils").SetChance(0.3).SetAttackCount(3))
-cultist_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.CursedEffect, 3).SetName("Curse").SetShortDesc("Preparing to curse you").SetChance(0.25))
-cultist_action_set.AppendAction(AP.SacrificeAction(5, "Eldtritch Entity").SetName("Sacrifice").SetShortDesc("Preparing to blood sacrifice"))
+mimic_action_set = AP.ActionSet()
+mimic_action_set.AppendAction(AP.AttackAction(15).SetName("Snap").SetShortDesc("Preparing to snap").SetAttackCount(2))
+mimic_action_set.AppendAction(AP.MimicSwallowAction().SetName("Swallow").SetShortDesc("Preparing to swallow").SetChance(0.55))
+mimic_action_set.AppendAction(AP.MimicImitateAction().SetName("Imitate").SetShortDesc("Preparing to imitate").SetChance(0.4))
+mimic_action_set.AppendAction(AP.MimicLureAction().SetName("Lure").SetShortDesc("Preparing to lure you").SetChance(0.35))
+mimic_action_set.AppendAction(AP.ProtectAction(40).SetName("Shell Clamp").SetShortDesc("Clamping its lid shut to shield").SetChance(0.5).SetRepeat(range(2,3)))
 
+vampire_spawn_action_set = AP.ActionSet()
+vampire_spawn_action_set.AppendAction(AP.AttackAction(20).SetName("Hungered Bite").SetShortDesc("Lunging for your throat").SetEffectsOnHit(StatusEffect.BleedEffect, StatusEffect.BleedEffect))
+vampire_spawn_action_set.AppendAction(AP.BloodDrainAction().SetName("Blood Drain").SetShortDesc("Reaching into your veins").SetChance(0.45))
+vampire_spawn_action_set.AppendAction(AP.AttackAction(7).SetName("Bat Swarm").SetShortDesc("Unleashing its children").SetAttackCount(range(3, 6)).SetChance(0.40).SetEffectsOnHit(StatusEffect.BleedEffect))
+vampire_spawn_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.LifestealEffect, 2).SetName("Crimson Shroud").SetShortDesc("Coiling darkness around itself").SetChance(0.30))
+vampire_spawn_action_set.AppendAction(AP.HemorrhageFeastAction().SetName("Hemorrhage Feast").SetShortDesc("Feasting on your open wounds").SetChance(0.35))
+
+giant_spider_action_set = AP.ActionSet()
+giant_spider_action_set.AppendAction(AP.AttackAction(14).SetName("Venomous Bite").SetShortDesc("Preparing to bite with venom").SetEffectsOnHit(StatusEffect.PoisonEffect, StatusEffect.PoisonEffect))
+giant_spider_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.WebbedEffect, 3).SetName("Web Trap").SetShortDesc("Preparing to trap you in webs").SetChance(0.55))
+giant_spider_action_set.AppendAction(AP.NothingAction().SetName("Skitter").SetShortDesc("Skittering away").SetChance(0.4))
+
+slime_action_set = AP.ActionSet()
+slime_action_set.AppendAction(AP.AttackAction(14).SetName("Slam").SetShortDesc("Preparing to slam"))
+slime_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.PoisonEffect, 2).SetName("Spit").SetShortDesc("Preparing to spit acid"))
+
+small_slime_action_set = AP.ActionSet()
+small_slime_action_set.AppendAction(AP.AttackAction(10).SetName("Slam").SetShortDesc("Preparing to slam"))
+small_slime_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.PoisonEffect, 1).SetName("Spit").SetShortDesc("Preparing to spit acid"))
+
+mini_slime_action_set = AP.ActionSet()
+mini_slime_action_set.AppendAction(AP.AttackAction(6).SetName("Slam").SetShortDesc("Preparing to slam"))
+mini_slime_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.PoisonEffect, 1).SetName("Spit").SetShortDesc("Preparing to spit acid"))
+
+hollowed_prophet_action_set = AP.ActionSet()
+hollowed_prophet_action_set.AppendAction(AP.AttackAction(15).SetName("Forsaken Rite").SetShortDesc("Preparing to invoke").SetEffectsOnHit(StatusEffect.CursedEffect))
+hollowed_prophet_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.BlessedEffect, 1).SetName("Revelation").SetShortDesc("Preparing to cleanse self").SetChance(0.5))
+hollowed_prophet_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.MadnessEffect, 3).SetName("Hollow Gaze").SetShortDesc("Preparing to gaze into your soul").SetChance(0.35))
+
+plague_rat_action_set = AP.ActionSet()
+plague_rat_action_set.AppendAction(AP.AttackAction(6).SetName("Gnaw").SetShortDesc("Preparing to gnaw").SetEffectsOnHit(StatusEffect.InfectionEffect))
+
+shadow_assassin_action_set = AP.ActionSet()
+shadow_assassin_action_set.AppendAction(AP.AttackAction(45).SetName("Backstab").SetShortDesc("Preparing to strike from shadow").SetCondition(lambda e: e.turnsAlive <= 0))
+shadow_assassin_action_set.AppendAction(AP.AttackAction(15).SetName("Slash").SetShortDesc("Preparing to slash").SetCondition(lambda e: e.turnsAlive >= 1))
+shadow_assassin_action_set.AppendAction(AP.ApplyEffectToSelfAction(StatusEffect.PhaseShifted, 1).SetName("Vanish").SetShortDesc("Preparing to vanish").SetChance(0.3).SetCondition(lambda e: e.turnsAlive >= 1))
+
+# Cultist boss
 eldtritch_entity_action_set = AP.ActionSet()
-eldtritch_entity_action_set.AppendAction(AP.AttackAction(10).SetName("Tentacle Slam").SetShortDesc("Preparing to slam with tentacles").SetAttackCount(2))
+eldtritch_entity_action_set.AppendAction(AP.AttackAction(7).SetName("Tentacle Slam").SetShortDesc("Preparing to slam with tentacles").SetAttackCount(2))
 eldtritch_entity_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.MadnessEffect, 5).SetName("Madness").SetShortDesc("Preparing to induce madness").SetChance(0.5))
 eldtritch_entity_action_set.AppendAction(AP.AttackAction(3).SetName("Eldtritch Blast").SetShortDesc("Preparing to blast you with eldtritch energy").SetAttackCount(10).SetChance(0.6))
+
+cultist_action_set = AP.ActionSet()
+cultist_action_set.AppendAction(AP.AttackAction(3).SetName("Dark Strike").SetShortDesc("Preparing to strike with dark tendrils").SetChance(0.1).SetAttackCount(3))
+cultist_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.CursedEffect, 3).SetName("Curse").SetShortDesc("Preparing to curse you").SetChance(0.3))
+cultist_action_set.AppendAction(AP.SacrificeAction(15, "Eldtritch Entity", 0.1).SetName("Sacrifice").SetShortDesc("Preparing to blood sacrifice"))
+
+# Pale Warden boss
+pale_warden_action_set = AP.ActionSet()
+pale_warden_action_set.AppendAction(AP.AttackAction(30).SetName("Warden's Strike").SetShortDesc("Preparing to strike").SetEffectsOnHit(StatusEffect.CursedEffect))
+pale_warden_action_set.AppendAction(AP.SummonAction("Bound Soul", 1).SetName("Soul Shackle").SetShortDesc("Preparing to shackle another").SetCondition(lambda e: e.GetBoundSoulCount() < 5).SetChance(0.5))
+pale_warden_action_set.AppendAction(AP.ApplyEffectToPlayerAction(StatusEffect.Weakness, 3).SetName("Spectral Chains").SetShortDesc("Preparing to shackle you").SetChance(0.35))
+pale_warden_action_set.AppendAction(AP.PaleWardenSpecialAttack(15).SetName("Judgement").SetShortDesc("Preparing to judge you").SetChance(0.2).SetCondition(lambda e: e.deadSouls > 0))
+
+bound_soul_action_set = AP.ActionSet()
+bound_soul_action_set.AppendAction(AP.NothingAction().SetName("Linger").SetShortDesc("Lingering around..."))
+
+# Plague Heart boss
+plague_heart_action_set = AP.ActionSet()
+plague_heart_action_set.AppendAction(AP.AttackAction(22).SetName("Necrotic Pulse").SetShortDesc("Preparing to pulse").SetEffectsOnHit(StatusEffect.InfectionEffect, StatusEffect.InfectionEffect))
+plague_heart_action_set.AppendAction(AP.VirulentBloomAction().SetName("Virulent Bloom").SetChance(0))
+plague_heart_action_set.AppendAction(AP.ConsumeSporeAction().SetName("Consume Spore").SetShortDesc("Preparing to consume dead spore").SetChance(0.35).SetCondition(lambda e: e.GetSporeCount() < e.SPORE_TARGET_AMOUNT))
+plague_heart_action_set.AppendAction(AP.PlagueHeartReformAction("Plague Spore", 3).SetName("Reformation").SetShortDesc("Preparing to reform").SetCondition(lambda e: not e.reformed and e.health <= (e.maxHealth // 2)))
+plague_heart_action_set.AppendAction(AP.AttackAction(30, False, 1.0).SetName("Plague Surge").SetShortDesc("Preparing to surge your infection").SetCondition(lambda e: e.IsPlayerSufficientlyInfected()))
+
+plague_spore_action_set = AP.ActionSet()
+plague_spore_action_set.AppendAction(AP.NothingAction().SetName("Float").SetShortDesc("Floating..."))
+
+# Ashen Revenant boss
+ashen_revenant_action_set = AP.ActionSet()
+ashen_revenant_action_set.AppendAction(AP.AttackAction(28).SetName("Ashen Strike").SetShortDesc("Preparing to strike and ignite").SetEffectsOnHit(StatusEffect.OnFireEffect, StatusEffect.OnFireEffect))
+ashen_revenant_action_set.AppendAction(AP.ProtectAction(20).SetName("Emberstep").SetShortDesc("Preparing to self-coat in ash to shield").SetChance(0.4))
+ashen_revenant_action_set.AppendAction(AP.SummonAction("Cinder Wisp").SetName("Ash Scatter").SetShortDesc("Preparing to resurrect").SetChance(0.3).SetCondition(lambda e: e.GetTotalWisps() < e.WISP_TARGET_COUNT))
+ashen_revenant_action_set.AppendAction(AP.AttackAction(35, False, 1).SetName("Cinder Breath").SetShortDesc("Preparing to breath cinders").SetChance(0.25))
+
+cinder_wisp_action_set = AP.ActionSet()
+cinder_wisp_action_set.AppendAction(AP.KindleAction().SetName("Kindle").SetShortDesc("Kindling the Ashen Revenant"))

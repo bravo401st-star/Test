@@ -83,8 +83,7 @@ class PhantomSigil(ARelic):
     def __init__(self):
         super().__init__()
         self.name = "Phantom Sigil"
-        self.description = f"+{int(PhantomSigil.ADDITIONAL_EVASION * 100)}% evasion chance. After dodging, instantly deal {PhantomSigil.DAMAGE_REFLECT} damage back." # TODO: implement damage retaliation on dodge
-
+        self.description = f"+{int(PhantomSigil.ADDITIONAL_EVASION * 100)}% evasion chance. After dodging, instantly deal {PhantomSigil.DAMAGE_REFLECT} damage back."
     def OnAcquire(self):
         import GameCore as gc
         gc.playerCharacter.evasion += PhantomSigil.ADDITIONAL_EVASION
@@ -117,16 +116,8 @@ class EternalFlask(ARelic):
         self.description = f"All potions gain +{EternalFlask.EXTRA_USES} extra use."
 
     def OnAcquire(self):
-        import GameCore as gc
-        import ItemSystem
-
-        for item in ItemSystem.itemsList:
-            if issubclass(type(item), ItemSystem.Potion):
-                item.useCount += EternalFlask.EXTRA_USES
-        
-        for item in gc.playerCharacter.items:
-            if issubclass(type(item), ItemSystem.Potion):
-                item.useCount += EternalFlask.EXTRA_USES
+        import Items
+        Items.ModifyPotionUses(EternalFlask.EXTRA_USES)
 
 class BloodOathPendant(ARelic):
     DAMAGE_MULT = 0.25

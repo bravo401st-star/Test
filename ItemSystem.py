@@ -1,4 +1,3 @@
-import GameCore as gc
 from abc import ABC
 import StatusEffect
 import Relics
@@ -9,7 +8,7 @@ class AItem(ABC):
     tag = "ITEM"
 
     def __init__(self):
-        self.name = "Unnamed Item"
+        self._name = "Unnamed Item"
         self.rarity = 100
         pass
     
@@ -17,7 +16,7 @@ class AItem(ABC):
         return self.name
     
     def SetName(self, name: str):
-        self.name = name
+        self._name = name
         return self
 
     def SetRarity(self, rarity: int):
@@ -28,6 +27,13 @@ class AItem(ABC):
         baseCost = 10
         cost = int(baseCost * (100 / self.rarity))
         return cost
+    
+    def get_name(self) -> str:
+        from Helper import GetRarityColor
+        from colorama import Fore, Style
+        return f"{GetRarityColor(self.rarity)}{self._name}{Fore.RESET}{Style.NORMAL}"
+    
+    name = property(get_name, SetName)
     
 class JunkItem(AItem):
     tag = "JUNK"
@@ -272,8 +278,10 @@ class Weapon(TargetUseableItem, LevelableItem):
         return super().CheckCanUse() or gc.playerCharacter.bonusAttacks > 0
     
     def ConsumeStamina(self):
+        from colorama import Fore
         if gc.playerCharacter.bonusAttacks > 0:
             gc.playerCharacter.bonusAttacks -= 1
+            print(f"{Fore.YELLOW}You use a free bonus attack and consume no stamina!{Fore.RESET}")
             return
         super().ConsumeStamina()
 
@@ -286,15 +294,15 @@ class Weapon(TargetUseableItem, LevelableItem):
         return self
     
     def GetDamage(self) -> int:
-        damage = self.baseDamage + self.CalculateAdditionalLevelDamage()
+        damage = self.CalculateDamageForLevel(self.itemLevel)
         if (not gc.playerHasAttackedLastTurn) and gc.playerCharacter.HasRelic(Relics.StonehoofTotem):
             damage = round(damage * (1 + Relics.StonehoofTotem.DAMAGE_MULT_WHEN_NOT_ATTACK))
         damage = round(damage * gc.playerCharacter.outgoingDamageMultiplier)
         damage += gc.playerCharacter.additionalRawDamage
         return damage
     
-    def CalculateAdditionalLevelDamage(self) -> int:
-        return round(self.baseDamage * ((self.itemLevel - 1) * Weapon.DAMAGE_MULT_PER_LEVEL))
+    def CalculateDamageForLevel(self, level) -> int:
+        return self.baseDamage + round(self.baseDamage * ((level - 1) * Weapon.DAMAGE_MULT_PER_LEVEL))
     
     def SetElement(self, elementType: ElementTag):
         self.elementType = elementType
@@ -314,7 +322,7 @@ class Weapon(TargetUseableItem, LevelableItem):
     
     useCost = property(get_useCost, set_useCost)
     
-class NoTargetWeapon(Weapon):
+class RandomTargetWeapon(Weapon):
     def GetTarget(self) -> AEntity:
         import random
         return gc.enemiesInScene[random.randrange(0, len(gc.enemiesInScene))]
@@ -414,29 +422,33 @@ class MaggotSalve(TargetUseableItem):
 class Potion(TargetUseableItem):
     tag = "POTION"
 
-class HolyPotion(Potion):
-    def GetDesc(self):
-        return super().GetDesc() + f" - Removes negative status effects and protects from future effects for {self.effectStacks} turns."
-    
-    def OnUse(self, target):
-        import StatusEffect
-        StatusEffect.Apply(target, StatusEffect.BlessedEffect, self.effectStacks)
-        target.ClearStatusEffects(True)
-        super().OnUse(target)
-        return True
-    
-    def SetDuration(self, stacks: int):
-        self.effectStacks = stacks
-        return self
+    def ConsumeStamina(self):
+        import SkillSystem
+        if SkillSystem.GetSkillNodeRank("sknd_quickmix") > 0:
+            return
+        return super().ConsumeStamina()
 
+    def OnUse(self, target):
+        import SkillSystem
+        bonusShield = SkillSystem.ALCHEMY_POTION_RESIDUE_SHIELD * SkillSystem.GetSkillNodeRank("sknd_fortifieddraught")
+        if bonusShield > 0:
+            gc.playerCharacter.AddShield(bonusShield)
+            print(f"{gc.playerCharacter.name} gains {bonusShield} shield from the potion's lingering residue!")
+        masterAlchRank = SkillSystem.GetSkillNodeRank("sknd_masteralchemist")
+        if masterAlchRank > 0 and target is gc.playerCharacter:
+            negativeEffect = target.GetRandomNegativeStatusEffect()
+            if negativeEffect is not None:
+                target.RemoveEffect(negativeEffect)
+                print(f"Using your mastery of alchemy and a {self.name}, you clear {negativeEffect.GetName()} from {target.name}!")
+        return super().OnUse(target)
 
 class HealthPotion(Potion):
     def __init__(self):
         super().__init__()
-        self.healing = 0
+        self.baseHealing = 0
 
     def GetDesc(self):
-        return super().GetDesc() + " - Healing: " + str(self.healing)
+        return super().GetDesc() + " - Healing: " + str(self.GetHealing())
     
     def Use(self, target):
         if (target.health >= target.maxHealth):
@@ -445,12 +457,20 @@ class HealthPotion(Potion):
         return super().Use(target)
 
     def OnUse(self, target):
-        target.Heal(self.healing)
+        target.Heal(self.GetHealing())
         super().OnUse(target)
 
-    def SetHealing(self, healing: int):
-        self.healing = healing
+    def SetBaseHealing(self, healing: int):
+        self.baseHealing = healing
         return self
+    
+    def GetHealing(self) -> int:
+        import SkillSystem
+        scaledHealing = int(self.baseHealing * gc.playerCharacter.healingMultiplier)
+        potentBrewsRank = SkillSystem.GetSkillNodeRank("sknd_potentbrews")
+        if (potentBrewsRank > 0):
+            scaledHealing *= (1 + potentBrewsRank * SkillSystem.ALCHEMY_POTENT_BREWS_STRENGTH_BONUS)
+        return int(scaledHealing)
     
 class EnergyPotion(Potion):
     def __init__(self):
@@ -470,29 +490,14 @@ class EnergyPotion(Potion):
         self.energy = energy
         return self
     
-class RegenerationPotion(Potion):
-    def __init__(self):
-        super().__init__()
-        self.duration = 0
-
-    def GetDesc(self):
-        return super().GetDesc() + f" - Heals per turn for {self.duration} turns."
-
-    def OnUse(self, target):
-        import StatusEffect
-        StatusEffect.Apply(target, StatusEffect.RegenerationEffect, self.duration)
-        super().OnUse(target)
-
-    def SetDuration(self, duration: int):
-        self.duration = duration
-        return self
-    
 class SmokeBomb(UseableItem):
     def GetDesc(self):
         return super().GetDesc() + f" - Escapes combat"
     
     def Use(self) -> bool:
         import Commands
+        if not Commands.ValidateEscapability():
+            return False
         if (not Commands.PromptYesNoQuestion("Are you sure you want to escape combat? (You recieve no rewards!)", False)):
             return False
         return super().Use()
@@ -515,7 +520,7 @@ class Antidote(Potion):
         target.RemoveEffect(StatusEffect.PoisonEffect)
         return super().OnUse(target)
     
-class Bandage(Potion):
+class Bandage(TargetUseableItem):
     def __init__(self):
         super().__init__()
         self.bleedCureAmount = 1
@@ -538,12 +543,12 @@ class Bandage(Potion):
         return super().GetDesc() + f" - Removes {self.bleedCureAmount} bleed."
 
 class EffectPotion(Potion):
-    def __init__(self, effect_type: type | None = None, stacks: int = 1):
+    def __init__(self, effect_type: type | None = None, baseStacks: int = 1):
         super().__init__()
         # list of (effectType, stacks)
         self.effects: list[tuple[type, int]] = []
         if effect_type is not None:
-            self.effects.append((effect_type, stacks))
+            self.effects.append((effect_type, baseStacks))
 
     def SetEffect(self, effect_type: type, stacks: int = 1):
         self.effects = [(effect_type, stacks)]
@@ -553,7 +558,7 @@ class EffectPotion(Potion):
         self.effects.append((effect_type, stacks))
         return self
 
-    def SetStacks(self, stacks: int):
+    def SetBaseStacks(self, stacks: int):
         # overwrite stacks for the first effect if present
         if len(self.effects) > 0:
             eff, _ = self.effects[0]
@@ -575,9 +580,17 @@ class EffectPotion(Potion):
 
     def OnUse(self, target):
         import StatusEffect
+        import SkillSystem
         for eff, stacks in self.effects:
             StatusEffect.Apply(target, eff, stacks)
         super().OnUse(target)
+
+class HolyPotion(EffectPotion):
+    def GetDesc(self):
+        return super().GetDesc() + f" - Removes negative status effects"
+
+import GameCore as gc
+from ItemEnhancers import EnhancementItem, LevelEnhancement, ElementEnhancement, EffectEnhancement
 
 itemsList = [
     # === BASIC WEAPONS ===
@@ -599,7 +612,10 @@ itemsList = [
     Weapon().SetName("Poison Dagger").SetRarity(35).SetUseCost(1).SetDamage(10).SetEffectToApply(StatusEffect.PoisonEffect),
     Weapon().SetName("Venom Fang").SetRarity(18).SetUseCost(1).SetDamage(14).SetEffectToApply(StatusEffect.PoisonEffect, 2),
     Weapon().SetName("Serrated Blade").SetRarity(25).SetUseCost(2).SetDamage(18).SetEffectToApply(StatusEffect.BleedEffect),
+    Weapon().SetName("Plague Needle").SetRarity(45).SetUseCost(1).SetDamage(10).SetEffectToApply(StatusEffect.InfectionEffect),
+    Weapon().SetName("Cursed Edge").SetRarity(37).SetUseCost(2).SetDamage(12).SetEffectToApply(StatusEffect.CursedEffect),
     RapidfireWeapon().SetName("Shank").SetRarity(48).SetUseCost(1).SetDamage(3).SetAttackCount(4).SetEffectToApply(StatusEffect.BleedEffect),
+    RapidfireWeapon().SetName("Bile Whip").SetRarity(28).SetUseCost(2).SetDamage(4).SetAttackCount(4).SetEffectToApply(StatusEffect.InfectionEffect),
     RapidfireWeapon().SetName("Rapier").SetRarity(40).SetUseCost(2).SetDamage(6).SetAttackCount(3).SetPierce(0.75),
 
     # === RAPIDFIRE WEAPONS ===
@@ -621,6 +637,7 @@ itemsList = [
     # === LEGENDARY & RARE WEAPONS ===
     Weapon().SetName("Excalibur").SetRarity(1).SetUseCost(2).SetDamage(65),
     Weapon().SetName("Warhammer").SetRarity(6).SetUseCost(4).SetDamage(62).SetPierce(1.5),
+    Weapon().SetName("Judgement Hammer").SetRarity(8).SetUseCost(4).SetDamage(56),
     Weapon().SetName("Dragon Slayer").SetRarity(2).SetUseCost(3).SetDamage(58),
     Weapon().SetName("Cursed Blade").SetRarity(4).SetUseCost(2).SetDamage(55).SetEffectToApply(StatusEffect.BleedEffect, 5),
     
@@ -633,11 +650,11 @@ itemsList = [
     SniperWeapon().SetName("Sniper Bow").SetRarity(7).SetUseCost(2).SetDamage(48).SetCritDamageMultiplier(1.5),
 
     # === BASIC POTIONS ===
-    HealthPotion().SetName("Lesser Health Potion").SetRarity(85).SetUseCost(1).SetUses(3).SetHealing(15),
-    HealthPotion().SetName("Health Potion").SetRarity(70).SetUseCost(1).SetUses(2).SetHealing(30),
-    HealthPotion().SetName("Greater Health Potion").SetRarity(40).SetUseCost(1).SetUses(1).SetHealing(50),
-    HealthPotion().SetName("Superior Health Potion").SetRarity(22).SetUseCost(1).SetUses(1).SetHealing(75),
-    HealthPotion().SetName("Legendary Health Potion").SetRarity(5).SetUseCost(1).SetUses(1).SetHealing(120),
+    HealthPotion().SetName("Lesser Health Potion").SetRarity(85).SetUseCost(1).SetUses(3).SetBaseHealing(15),
+    HealthPotion().SetName("Health Potion").SetRarity(70).SetUseCost(1).SetUses(2).SetBaseHealing(30),
+    HealthPotion().SetName("Greater Health Potion").SetRarity(40).SetUseCost(1).SetUses(1).SetBaseHealing(50),
+    HealthPotion().SetName("Superior Health Potion").SetRarity(22).SetUseCost(1).SetUses(1).SetBaseHealing(75),
+    HealthPotion().SetName("Legendary Health Potion").SetRarity(5).SetUseCost(1).SetUses(1).SetBaseHealing(120),
     
     # === ENERGY POTIONS ===
     EnergyPotion().SetName("Energy Potion").SetRarity(50).SetUseCost(1).SetUses(2).SetEnergy(3),
@@ -645,13 +662,13 @@ itemsList = [
     EnergyPotion().SetName("Superior Energy Potion").SetRarity(12).SetUseCost(1).SetUses(1).SetEnergy(8),
     
     # === REGENERATION POTIONS ===
-    RegenerationPotion().SetName("Regeneration Potion").SetRarity(65).SetUseCost(1).SetUses(1).SetDuration(5),
-    RegenerationPotion().SetName("Extended Regeneration Potion").SetRarity(35).SetUseCost(1).SetUses(1).SetDuration(8),
-    RegenerationPotion().SetName("Superior Regeneration Potion").SetRarity(18).SetUseCost(1).SetUses(1).SetDuration(10),
+    EffectPotion().SetName("Regeneration Potion").SetRarity(65).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.RegenerationEffect, 5),
+    EffectPotion().SetName("Extended Regeneration Potion").SetRarity(35).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.RegenerationEffect, 8),
+    EffectPotion().SetName("Superior Regeneration Potion").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.RegenerationEffect, 10),
     
     # === UTILITY POTIONS ===
-    HolyPotion().SetName("Holy Potion").SetRarity(32).SetUseCost(1).SetUses(1).SetDuration(5),
-    HolyPotion().SetName("Divine Protection Potion").SetRarity(16).SetUseCost(1).SetUses(1).SetDuration(10),
+    HolyPotion().SetName("Holy Potion").SetRarity(32).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.BlessedEffect, 5),
+    HolyPotion().SetName("Divine Protection Potion").SetRarity(16).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.BlessedEffect, 10),
     Antidote().SetName("Antidote").SetRarity(45).SetUseCost(1).SetUses(1),
     SmokeBomb().SetName("Smoke Bomb").SetRarity(28).SetUseCost(1).SetUses(1),
     SmokeBomb().SetName("Smoke Pellet").SetRarity(38).SetUseCost(1).SetUses(2),
@@ -673,6 +690,9 @@ itemsList = [
     EffectPotion().SetName("Berserker's Brew").SetRarity(14).SetUseCost(2).SetUses(1).SetEffect(StatusEffect.BerserkEffect, 3),
     EffectPotion().SetName("Vampiric Tonic").SetRarity(18).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.LifestealEffect, 6),
     EffectPotion().SetName("Thorny Brew").SetRarity(31).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.ThornedEffect, 6),
+    EffectPotion().SetName("Infection Flask").SetRarity(30).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.InfectionEffect, 6),
+    EffectPotion().SetName("Cursed Vial").SetRarity(28).SetUseCost(1).SetUses(1).SetEffect(StatusEffect.CursedEffect, 3),
+    EffectPotion().SetName("Charcoal Flask").SetRarity(35).SetUseCost(1).SetUses(2).SetEffect(StatusEffect.OnFireEffect, 4),
 
     # === SHIELDING ITEMS ===
     ShieldItem().SetName("Training Wooden Shield").SetRarity(90).SetUseCost(1).SetShield(4),
@@ -685,6 +705,13 @@ itemsList = [
     #ShieldItem().SetName("Venomglass Plate").SetRarity(95).SetUseCost(2).SetShield(4),
     #ShieldItem().SetName("Golem-Core Plating").SetRarity(95).SetUseCost(2).SetShield(4),
     #ShieldItem().SetName("Bloodforged Aegis").SetRarity(3).SetUseCost(2).SetShield(45),
+
+    # === WEAPON ENHANCEMENT ITEMS ===
+    EnhancementItem().SetName("Sharpening Stone").SetRarity(20).SetUseCost(0).SetUses(1).SetEnhancementType(LevelEnhancement(3)),
+    EnhancementItem().SetName("Venom Coating").SetRarity(15).SetUseCost(0).SetUses(1).SetEnhancementType(EffectEnhancement(StatusEffect.PoisonEffect, 1)),
+    EnhancementItem().SetName("Fire Rune").SetRarity(22).SetUseCost(0).SetUses(1).SetEnhancementType(ElementEnhancement(ElementTag.FIRE)),
+    EnhancementItem().SetName("Lightning Rune").SetRarity(22).SetUseCost(0).SetUses(1).SetEnhancementType(ElementEnhancement(ElementTag.LIGHTNING)),
+    EnhancementItem().SetName("Ice Rune").SetRarity(22).SetUseCost(0).SetUses(1).SetEnhancementType(ElementEnhancement(ElementTag.WATER)),
 
     # === USEFUL ITEMS ===
     #TreasureItem().SetName("Relic Shard").SetRarity(5),
@@ -720,7 +747,7 @@ itemsList = [
     JunkItem().SetName("Gold Ore").SetRarity(18),
     JunkItem().SetName("Ancient Scroll").SetRarity(22),
     JunkItem().SetName("Mithril Fragment").SetRarity(12),
-    JunkItem().SetName("Phoenix Feather").SetRarity(8),
+    JunkItem().SetName("Inert Phoenix Feather").SetRarity(8),
     JunkItem().SetName("Moonstone").SetRarity(15),
     
     # === VALUABLE TREASURES ===
@@ -735,6 +762,7 @@ itemsList = [
 ]
 
 """
+OLD ITEM LIST FOR REFERENCE
 itemsList = [
     # Weapons
     Weapon().SetName("Rusty Sword").SetRarity(100).SetUseCost(2).SetDamage(15),

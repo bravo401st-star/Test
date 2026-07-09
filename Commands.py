@@ -6,6 +6,7 @@ import Items
 import Entity
 import Enemies
 import CommandParam
+import Helper
 from colorama import Fore, Back, Style
 import Relics
 import sys
@@ -87,7 +88,7 @@ class Command():
     
 command_map = {
     "help": Command("c_help", "Shows all avaliable commands").SetParams(CommandParam.Parameter("command", CommandParam.StringArgument, True)),
-    "inventory": Command("c_inventory", "Show and manage your inventory").SetParams(CommandParam.Parameter("action (drop, use)", CommandParam.StringArgument, True), CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True)),
+    "inventory": Command("c_inventory", "Show and manage your inventory").SetParams(CommandParam.Parameter("action (drop, use, sort)", CommandParam.StringArgument, True), CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True)),
     "quit": Command("c_quit", "Quits the game (for cowards)."),
     "use": Command("c_use", "Use item on entity").SetParams(CommandParam.Parameter("itemIndex", CommandParam.IntArgument, True), CommandParam.Parameter("entityIndex", CommandParam.IntArgument, True)),
     "entities": Command("c_entities", "Show a list of all entities in scene"),
@@ -232,7 +233,7 @@ def c_skills():
             else:
                 status = ""
             
-            print(f"{Fore.CYAN}[{idx + 1}] {tree.name.upper()}{' ' + status if status else ''}")
+            print(f"{Fore.CYAN}[{idx + 1}] {Style.BRIGHT}{tree.name.upper()}{Style.NORMAL} - {tree.description}{' ' + status if status else ''}")
         print()
         
         # Select tree
@@ -456,7 +457,7 @@ def c_status():
     print("Level: " + str(gc.playerCharacter.level))
     print(f"Experience: {gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}")
     print("Gold: " + str(gc.playerCharacter.GetGold()))
-    print(f"Evasion: {round(gc.playerCharacter.GetEvasion() * 100, 2)}%")
+    print(f"Evasion: {round(gc.playerCharacter.evasion * 100, 2)}%")
     print(f"Lifesteal: {round(gc.playerCharacter.lifesteal * 100, 2)}%")
     print(f"Critical Chance: {round(gc.playerCharacter.critialHitChance * 100, 2)}%")
     print(f"Critical Hit Damage Multiplier: {round(gc.playerCharacter.criticalHitMultiplier * 100, 2)}%")
@@ -489,13 +490,13 @@ def PrintOutEntityList():
     from Entity import AEntity
     from EnemyTags import EnemyTag
     effectsText = gc.playerCharacter.GetEffectListText()
-    print(f"\nEntities on the map: \n1: Player [HP: {gc.playerCharacter.health}{gc.playerCharacter.GetBonusHealthText()}] [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
+    print(f"\nEntities on the map: \n1: Player {Helper.GenerateHealthbar(gc.playerCharacter)} [LVL: {gc.playerCharacter.level}] {(effectsText) if effectsText != None else ''}")
     index = 2
-    print("-"*40)
+    print("─"*50)
     for enemy in gc.enemiesInScene:
         if enemy.actionSet is None:
             continue
-        action = enemy.actionSet.GetNextAction()
+        action = enemy.actionSet.GetAction()
         actionText = "[Just chillin']"
         if action is not None:
             actionText = f"!![{Style.BRIGHT}{action.actionColor}{action.GetShortDesc()}{Style.NORMAL}{Fore.RESET}]!!{Style.RESET_ALL}"
@@ -505,10 +506,10 @@ def PrintOutEntityList():
         if enemy.stunCount > 0:
             actionText = f" {Fore.MAGENTA}{Style.BRIGHT}[STUNNED]{Style.RESET_ALL}"
 
-        nameColor = Fore.RED if enemy.HasTag(EnemyTag.BOSS) else Fore.RESET
+        bossHint = f"{Fore.RED}🕱 " if enemy.HasTag(EnemyTag.BOSS) else Fore.RESET
         immunityHintColor = Back.LIGHTBLACK_EX if enemy.HasTag(EnemyTag.IMMUNE_TO_DAMAGE) else Back.RESET
 
-        print(f"{immunityHintColor}{index}: {nameColor}{enemy.name}{Fore.RESET} [HP: {enemy.health}{enemy.GetBonusHealthText()}] [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
+        print(f"{immunityHintColor}{index}: {bossHint}{enemy.name}{Fore.RESET} {Helper.GenerateHealthbar(enemy)} [LVL: {enemy.level}]{enemy.GetAdditionalDesc()} {actionText}{(' ' + effectsText) if effectsText != None else ''}")
         index += 1
 
 def c_event():
@@ -607,6 +608,15 @@ def c_inventory(args: list):
             return GetItemIndexFromUser(question)
         return int(selection) - 1
     
+    if action == "sort":
+        weapons = [i for i in gc.playerCharacter.items if isinstance(i, ItemSystem.Weapon)]
+        shielding = [i for i in gc.playerCharacter.items if isinstance(i, ItemSystem.ShieldItem)]
+        potions = [i for i in gc.playerCharacter.items if isinstance(i, ItemSystem.Potion)]
+        other = [i for i in gc.playerCharacter.items if i not in weapons and i not in potions and i not in shielding]
+        gc.playerCharacter.items = weapons + shielding + potions + other
+        print(f"Sorted inventory!")
+        return
+    
     # Get item index either from args or prompt user
     index = args[1].Get() - 1 if len(args) > 1 else GetItemIndexFromUser(f"Select item index to {action} (leave blank to cancel): ")
     
@@ -627,7 +637,7 @@ def ForceEscape():
     # clear enemies from scene
         for enemy in reversed(gc.enemiesInScene):
             gc.RemoveEnemyFromScene(enemy)
-        gc.CheckEncounterStillHasEnemies(False)
+        gc.CheckHandleEncounterEnd(False)
 
 def ValidateEscapability() -> bool:
     if gc.currentEncounterReference == None:
@@ -645,7 +655,7 @@ def c_escape():
         return
 
     escapeChance = 0.1
-    escapeChance += gc.playerCharacter.GetEvasion() * 0.5 # Evasion should contribute to escape chance
+    escapeChance += gc.playerCharacter.evasion * 0.5 # Evasion should contribute to escape chance
     if PromptYesNoQuestion(f"Are you sure you want to attempt an escape? [{Fore.RED}{Style.BRIGHT}{escapeChance * 100:.0f}%{Style.RESET_ALL}] (Costs 1 stamina)", False):
         if gc.playerCharacter.stamina <= 0:
             print("Not enough stamina to escape!")
@@ -831,6 +841,8 @@ def ParseAndRun(command: str, arguments: list):
     
     if (found[0] in command_map):
         command_map[found[0]].Execute(arguments)
+        if command_map[found[0]].hide == True:
+            gc.usedCheats = True
     else:
         print("Invalid command!")
 

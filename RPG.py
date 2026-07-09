@@ -1,5 +1,6 @@
 import GameCore as gc
 import Commands
+import Helper
 from colorama import Fore, Style
 
 # region Info
@@ -20,6 +21,7 @@ def main():
     Commands.c_clear()
     setup()
     GameLoop()
+    input("Press enter to exit...")
 
 def setup():
     print("Welcome traveller!")
@@ -31,17 +33,28 @@ def GameLoop():
         if (command == REPEAT_COMMAND):
             command = Commands.lastCommand
         PushInput(command)
-        gc.CheckEncounterStillHasEnemies()
+        gc.CheckHandleEncounterEnd()
 
     print("Game over!")
+    if gc.usedCheats == True:
+        print(f"{Fore.RED}{Style.BRIGHT}You used cheats this run.{Style.RESET_ALL}")
     print(f"[Kills: {gc.killCount}] [Level Reached: {gc.playerCharacter.level.level}] [Difficulty: {gc.setDifficulty.name.title()}]")
-    input("Press enter to exit...")
 
 def GetInput() -> str:
     import SkillSystem
+    Commands.PrintOutEntityList()
     if (gc.showPlayerInfo):
         skillPointTxt = "" if SkillSystem.playerSkillPoints <= 0 else f" [{Fore.CYAN}{Style.BRIGHT}{SkillSystem.playerSkillPoints}{Style.RESET_ALL} Skill points available!]"
-        print(f"\n[{Fore.GREEN}{Style.BRIGHT}{gc.playerCharacter.name}{Style.RESET_ALL}] [HP: {Fore.RED}{Style.BRIGHT}{gc.playerCharacter.health}/{gc.playerCharacter.maxHealth}{Style.RESET_ALL}{gc.playerCharacter.GetBonusHealthText()}] [STAMINA: {Fore.YELLOW}{Style.BRIGHT}{gc.playerCharacter.stamina}/{gc.playerCharacter.maxStamina}{Style.RESET_ALL}] [LVL: {Fore.CYAN}{Style.BRIGHT}{gc.playerCharacter.level}{Style.RESET_ALL}] [EXP: {Fore.WHITE}{Style.BRIGHT}{gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}{Style.RESET_ALL}]{skillPointTxt}")
+        print(
+            f"\n[{Fore.GREEN}{Style.BRIGHT}{gc.playerCharacter.name}{Style.RESET_ALL}] "
+            f"{Helper.GenerateHealthbar(gc.playerCharacter)} "
+            f"[STAMINA: {Fore.YELLOW}{Style.BRIGHT}{Helper.MakeBar(gc.playerCharacter.stamina, gc.playerCharacter.maxStamina, 5)} "
+            f"{gc.playerCharacter.stamina}/{gc.playerCharacter.maxStamina}{Style.RESET_ALL}] "
+            f"[LVL: {Fore.CYAN}{Style.BRIGHT}{gc.playerCharacter.level}{Style.RESET_ALL}] "
+            f"[EXP: {Fore.WHITE}{Style.BRIGHT}{gc.playerCharacter.level.heldExperience}/{gc.playerCharacter.level.neededExperience}{Style.RESET_ALL}]{skillPointTxt} "
+            f"[{Fore.YELLOW}{Style.NORMAL}{gc.playerCharacter.GetGold()}g{Style.RESET_ALL}] "
+            f"[{Fore.RED if gc.totalEncountersCompleted % gc.ENCOUNTERS_TO_NEXT_BOSS >= gc.ENCOUNTERS_TO_NEXT_BOSS - 3 else Fore.LIGHTBLACK_EX}{Style.BRIGHT}Fight #{gc.totalEncountersCompleted + 1}{" - BOSS SOON" if gc.totalEncountersCompleted % gc.ENCOUNTERS_TO_NEXT_BOSS >= gc.ENCOUNTERS_TO_NEXT_BOSS - 3 else ""}{Style.RESET_ALL}]"
+        )
     command = input(("\n" if not gc.showPlayerInfo else "") + "What do you do next? (Type \"help\" for help!): ").lower()
     command = command.strip()
     return command

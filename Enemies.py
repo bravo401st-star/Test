@@ -68,12 +68,16 @@ def GetByIndex(index: int) -> None | Entity.BasicEnemy:
         return None
     return EnemyList.__enemy_pool__[index]
 
-def CreateEnemyByName(name: str, level: int = 1):
+def GetByName(name: str) -> None | Entity.BasicEnemy:
     entityRef = None
     for enemy in EnemyList.__enemy_pool__:
         if (enemy.name == name):
             entityRef = enemy
             break
+    return entityRef
+
+def CreateEnemyByName(name: str, level: int = 1):
+    entityRef = GetByName(name)
 
     if (entityRef == None):
         return None

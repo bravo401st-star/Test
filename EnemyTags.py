@@ -5,3 +5,4 @@ class EnemyTag(str, Enum):
     CANT_BE_UNDEAD = 'Cant_Be_Undead',
     IMMUNE_TO_DAMAGE = 'Immune_To_Damage',
     BOSS = 'Boss',
+    INFECTIOUS = "Infectious"

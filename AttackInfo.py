@@ -2,7 +2,7 @@ from ElementTags import ElementTag
 
 class AttInfo():
     def __init__(self, damage: int, attacker = None, ignoreEvasion: bool = False, shieldPierce: float = 0.0) -> None:
-        self.damage = damage
+        self.damage = int(damage)
         self.attacker = attacker
         self.ignoresEvasion = ignoreEvasion
         self.elements: list[ElementTag] = []
